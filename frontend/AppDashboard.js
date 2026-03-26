@@ -83,6 +83,7 @@ export default function AppDashboard() {
       if (stock) {
         const newBlocked = Math.max(0, (stock.blocked_qty || 0) - order.quantity)
         await inventoryStockService.updateBlockedQty(stock.id, newBlocked, order.item_id)
+        await inventoryStockService.reduceQuantity(stock.id, order.quantity, order.item_id)
       }
     }
   }

@@ -66,6 +66,49 @@ export class InventoryStockService {
   }
 
   /**
+   * Reduce quantity for a specific inventory stock record (e.g. on dispatch).
+   * Also updates the parent inventory_items quantity.
+   * @param {string} id - The inventory_stock record ID
+   * @param {number} reduceBy - Amount to reduce
+   * @param {string} inventoryItemId - The parent inventory_items ID
+   */
+  async reduceQuantity(id, reduceBy, inventoryItemId) {
+    const { data: current, error: fetchError } = await supabase
+      .from('inventory_stock')
+      .select('quantity')
+      .eq('id', id)
+      .single()
+
+    if (fetchError) return { data: null, error: fetchError }
+
+    const newQty = Math.max(0, (current.quantity || 0) - reduceBy)
+    const { data: stockData, error: stockError } = await supabase
+      .from('inventory_stock')
+      .update({ quantity: newQty })
+      .eq('id', id)
+      .select()
+
+    if (stockError) return { data: null, error: stockError }
+
+    if (inventoryItemId) {
+      const { data: allStocks, error: sumError } = await supabase
+        .from('inventory_stock')
+        .select('quantity')
+        .eq('item_id', inventoryItemId)
+
+      if (!sumError && allStocks) {
+        const totalQty = allStocks.reduce((sum, s) => sum + (s.quantity || 0), 0)
+        await supabase
+          .from('inventory_items')
+          .update({ quantity: totalQty })
+          .eq('id', inventoryItemId)
+      }
+    }
+
+    return { data: stockData, error: null }
+  }
+
+  /**
    * Calculate dashboard statistics from inventory data.
    * @param {array} inventoryData - Array of inventory stock records
    * @returns {{totalItems: number, totalStock: number, categories: number, lowStock: number}}
