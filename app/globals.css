@@ -424,6 +424,96 @@ tr:last-child td {
   font-size: 0.9rem;
 }
 
+/* Blocked Quantity Badge */
+.blocked-qty-badge {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+/* Block Inventory Button & Inline Form */
+.btn-block {
+  padding: 6px 14px;
+  background: #ff7043;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-block:hover {
+  background: #f4511e;
+  transform: translateY(-1px);
+}
+
+.block-inline-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.block-qty-input {
+  width: 70px;
+  padding: 6px 8px;
+  border: 2px solid #e9ecef;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.block-qty-input:focus {
+  outline: none;
+  border-color: #ff7043;
+  box-shadow: 0 0 0 3px rgba(255, 112, 67, 0.15);
+}
+
+.btn-confirm-block {
+  padding: 6px 10px;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: background 0.2s ease;
+}
+
+.btn-confirm-block:hover {
+  background: #388e3c;
+}
+
+.btn-cancel-block {
+  padding: 6px 10px;
+  background: #ef5350;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 700;
+  transition: background 0.2s ease;
+}
+
+.btn-cancel-block:hover {
+  background: #c62828;
+}
+
+.block-error {
+  color: #c62828;
+  font-size: 0.75rem;
+  width: 100%;
+  margin-top: 2px;
+}
+
+.card-actions {
+  padding: 10px 15px;
+  border-top: 1px solid #f0f0f0;
+}
+
 /* Mobile Responsive Styles - Mobile First Approach */
 @media (max-width: 768px) {
   .dashboard-container {
