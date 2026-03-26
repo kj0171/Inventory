@@ -17,6 +17,7 @@ export class InventoryStockService {
         quantity,
         blocked_qty,
         created_at,
+        item_id,
         inventory_items (
           name,
           item_category,
@@ -34,14 +35,34 @@ export class InventoryStockService {
    * @param {number} blockedQty - The new blocked quantity
    * @returns {Promise<{data: object, error: object|null}>}
    */
-  async updateBlockedQty(id, blockedQty) {
-    const { data, error } = await supabase
+  async updateBlockedQty(id, blockedQty, inventoryItemId) {
+    const { data: stockData, error: stockError } = await supabase
       .from('inventory_stock')
       .update({ blocked_qty: blockedQty })
       .eq('id', id)
       .select()
 
-    return { data, error }
+    if (stockError) return { data: null, error: stockError }
+
+    if (inventoryItemId) {
+      // Sum blocked_qty across all stock records for this inventory item
+      const { data: allStocks, error: sumError } = await supabase
+        .from('inventory_stock')
+        .select('blocked_qty')
+        .eq('item_id', inventoryItemId)
+
+      if (sumError) return { data: stockData, error: sumError }
+
+      const totalBlocked = allStocks.reduce((sum, s) => sum + (s.blocked_qty || 0), 0)
+      const { error: itemError } = await supabase
+        .from('inventory_items')
+        .update({ blocked_qty: totalBlocked })
+        .eq('id', inventoryItemId)
+
+      if (itemError) return { data: stockData, error: itemError }
+    }
+
+    return { data: stockData, error: null }
   }
 
   /**

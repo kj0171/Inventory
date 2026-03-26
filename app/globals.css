@@ -514,6 +514,28 @@ tr:last-child td {
   border-top: 1px solid #f0f0f0;
 }
 
+.action-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-unblock {
+  padding: 6px 14px;
+  background: #66bb6a;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-unblock:hover {
+  background: #43a047;
+  transform: translateY(-1px);
+}
+
 /* Mobile Responsive Styles - Mobile First Approach */
 @media (max-width: 768px) {
   .dashboard-container {

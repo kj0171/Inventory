@@ -3,11 +3,14 @@ import { getCategoryClass, getQuantityClass } from './utils'
 
 export default function MobileCards({
   groupedData, collapsedCategories, collapsedItemGroups,
-  onToggleCategory, onToggleItemGroup, onBlockInventory
+  onToggleCategory, onToggleItemGroup, onBlockInventory, onUnblockInventory
 }) {
   const [blockingItemId, setBlockingItemId] = useState(null)
   const [blockQty, setBlockQty] = useState('')
   const [blockError, setBlockError] = useState('')
+  const [unblockingItemId, setUnblockingItemId] = useState(null)
+  const [unblockQty, setUnblockQty] = useState('')
+  const [unblockError, setUnblockError] = useState('')
 
   function openBlockDialog(item) {
     setBlockingItemId(item.id)
@@ -35,6 +38,34 @@ export default function MobileCards({
     }
     onBlockInventory(item.id, currentBlocked + qty)
     closeBlockDialog()
+  }
+
+  function openUnblockDialog(item) {
+    setUnblockingItemId(item.id)
+    setUnblockQty('')
+    setUnblockError('')
+    closeBlockDialog()
+  }
+
+  function closeUnblockDialog() {
+    setUnblockingItemId(null)
+    setUnblockQty('')
+    setUnblockError('')
+  }
+
+  function handleUnblockSubmit(item) {
+    const qty = Number(unblockQty)
+    if (!unblockQty || isNaN(qty) || qty <= 0) {
+      setUnblockError('Please enter a valid quantity greater than 0')
+      return
+    }
+    const currentBlocked = item.blocked_qty || 0
+    if (qty > currentBlocked) {
+      setUnblockError(`Quantity cannot exceed blocked stock (${currentBlocked})`)
+      return
+    }
+    onUnblockInventory(item.id, currentBlocked - qty)
+    closeUnblockDialog()
   }
   return (
     <div className="mobile-cards">
@@ -132,10 +163,29 @@ export default function MobileCards({
                                   <button className="btn-cancel-block" onClick={closeBlockDialog}>✕</button>
                                   {blockError && <div className="block-error">{blockError}</div>}
                                 </div>
+                              ) : unblockingItemId === row.id ? (
+                                <div className="block-inline-form">
+                                  <input
+                                    type="number"
+                                    min="1"
+                                    max={row.blocked_qty || 0}
+                                    value={unblockQty}
+                                    onChange={(e) => { setUnblockQty(e.target.value); setUnblockError('') }}
+                                    placeholder="Qty"
+                                    className="block-qty-input"
+                                    autoFocus
+                                  />
+                                  <button className="btn-confirm-block" onClick={() => handleUnblockSubmit(row)}>✓</button>
+                                  <button className="btn-cancel-block" onClick={closeUnblockDialog}>✕</button>
+                                  {unblockError && <div className="block-error">{unblockError}</div>}
+                                </div>
                               ) : (
-                                <button className="btn-block" onClick={() => openBlockDialog(row)}>
-                                  Block
-                                </button>
+                                <div className="action-buttons">
+                                  <button className="btn-block" onClick={() => openBlockDialog(row)}>Block</button>
+                                  {(row.blocked_qty || 0) > 0 && (
+                                    <button className="btn-unblock" onClick={() => openUnblockDialog(row)}>Unblock</button>
+                                  )}
+                                </div>
                               )}
                             </div>
                           </div>

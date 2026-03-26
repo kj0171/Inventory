@@ -4,7 +4,7 @@ import MobileCards from './MobileCards'
 export default function InventoryTable({
   filteredData, groupedData, data,
   collapsedCategories, collapsedItemGroups,
-  onToggleCategory, onToggleItemGroup, onToggleAll, onBlockInventory
+  onToggleCategory, onToggleItemGroup, onToggleAll, onBlockInventory, onUnblockInventory
 }) {
   return (
     <div className="table-container">
@@ -41,6 +41,7 @@ export default function InventoryTable({
             onToggleCategory={onToggleCategory}
             onToggleItemGroup={onToggleItemGroup}
             onBlockInventory={onBlockInventory}
+            onUnblockInventory={onUnblockInventory}
           />
           <MobileCards
             groupedData={groupedData}
@@ -49,6 +50,7 @@ export default function InventoryTable({
             onToggleCategory={onToggleCategory}
             onToggleItemGroup={onToggleItemGroup}
             onBlockInventory={onBlockInventory}
+            onUnblockInventory={onUnblockInventory}
           />
         </>
       )}

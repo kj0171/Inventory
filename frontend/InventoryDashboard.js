@@ -180,13 +180,27 @@ export default function InventoryDashboard() {
   }
 
   async function handleBlockInventory(id, blockedQty) {
-    const { error } = await inventoryStockService.updateBlockedQty(id, blockedQty)
+    const item = data.find(d => d.id === id)
+    const { error } = await inventoryStockService.updateBlockedQty(id, blockedQty, item?.item_id)
     if (error) {
       console.error('Error updating blocked quantity:', error)
       alert('Failed to update blocked quantity. Please try again.')
     } else {
-      setData(prev => prev.map(item =>
-        item.id === id ? { ...item, blocked_qty: blockedQty } : item
+      setData(prev => prev.map(d =>
+        d.id === id ? { ...d, blocked_qty: blockedQty } : d
+      ))
+    }
+  }
+
+  async function handleUnblockInventory(id, blockedQty) {
+    const item = data.find(d => d.id === id)
+    const { error } = await inventoryStockService.updateBlockedQty(id, blockedQty, item?.item_id)
+    if (error) {
+      console.error('Error updating blocked quantity:', error)
+      alert('Failed to unblock quantity. Please try again.')
+    } else {
+      setData(prev => prev.map(d =>
+        d.id === id ? { ...d, blocked_qty: blockedQty } : d
       ))
     }
   }
@@ -253,6 +267,7 @@ export default function InventoryDashboard() {
         onToggleItemGroup={toggleItemGroupCollapse}
         onToggleAll={toggleAllCategories}
         onBlockInventory={handleBlockInventory}
+        onUnblockInventory={handleUnblockInventory}
       />
     </div>
   )
