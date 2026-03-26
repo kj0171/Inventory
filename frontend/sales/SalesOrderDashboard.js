@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import { CURRENT_USER, ROLES } from '../shared/auth'
 import { getStatusClass, formatDate } from '../shared/utils'
 
-export default function SalesOrderDashboard({ orders, onApprove, onReject }) {
+export default function SalesOrderDashboard({ orders, loading, onApprove, onReject }) {
   const [statusFilter, setStatusFilter] = useState('all')
   const [searchFilter, setSearchFilter] = useState('')
 
@@ -13,10 +13,11 @@ export default function SalesOrderDashboard({ orders, onApprove, onReject }) {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false
       if (searchFilter) {
         const search = searchFilter.toLowerCase()
+        const itemName = order.inventory_items?.name || ''
         if (
-          !order.item_name?.toLowerCase().includes(search) &&
+          !itemName.toLowerCase().includes(search) &&
           !order.customer_name?.toLowerCase().includes(search) &&
-          !order.id?.toLowerCase().includes(search)
+          !String(order.id).toLowerCase().includes(search)
         ) return false
       }
       return true
@@ -90,7 +91,11 @@ export default function SalesOrderDashboard({ orders, onApprove, onReject }) {
           </h2>
         </div>
 
-        {filteredOrders.length === 0 ? (
+        {loading ? (
+          <div className="empty-state">
+            <h3>Loading sales orders...</h3>
+          </div>
+        ) : filteredOrders.length === 0 ? (
           <div className="empty-state">
             <h3>No sales orders found</h3>
             <p>Create a sale from the Inventory tab to get started.</p>
@@ -116,11 +121,11 @@ export default function SalesOrderDashboard({ orders, onApprove, onReject }) {
                   <tbody>
                     {filteredOrders.map(order => (
                       <tr key={order.id}>
-                        <td><span className="order-id">{order.id}</span></td>
+                        <td><span className="order-id">#{order.id}</span></td>
                         <td>
                           <div className="item-info">
-                            <strong className="item-name">{order.item_name}</strong>
-                            <span className="item-category-text">{order.item_category}</span>
+                            <strong className="item-name">{order.inventory_items?.name || 'Unknown'}</strong>
+                            <span className="item-category-text">{order.inventory_items?.item_category || ''}</span>
                           </div>
                         </td>
                         <td>
@@ -134,7 +139,7 @@ export default function SalesOrderDashboard({ orders, onApprove, onReject }) {
                         <td><span className="quantity-badge quantity-medium">{order.quantity} units</span></td>
                         <td><span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span></td>
                         <td><span className="date-text">{formatDate(order.created_at)}</span></td>
-                        <td>{order.created_by_name}</td>
+                        <td>{order.created_by || '—'}</td>
                         {isAdmin && (
                           <td>
                             {order.status === 'pending' && (
@@ -157,13 +162,13 @@ export default function SalesOrderDashboard({ orders, onApprove, onReject }) {
               {filteredOrders.map(order => (
                 <div key={order.id} className="inventory-card">
                   <div className="card-header">
-                    <h5 className="card-title">{order.item_name}</h5>
+                    <h5 className="card-title">{order.inventory_items?.name || 'Unknown'}</h5>
                     <span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span>
                   </div>
                   <div className="card-details">
                     <div className="card-detail">
                       <div className="card-detail-label">Order ID</div>
-                      <div className="card-detail-value">{order.id}</div>
+                      <div className="card-detail-value">#{order.id}</div>
                     </div>
                     <div className="card-detail">
                       <div className="card-detail-label">Quantity</div>

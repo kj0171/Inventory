@@ -3,7 +3,7 @@
 import { useState, useMemo } from 'react'
 import { getStatusClass, formatDate } from '../shared/utils'
 
-export default function DispatchDashboard({ orders, onDispatch }) {
+export default function DispatchDashboard({ orders, loading, onDispatch }) {
   const [searchFilter, setSearchFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('approved')
 
@@ -12,10 +12,11 @@ export default function DispatchDashboard({ orders, onDispatch }) {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false
       if (searchFilter) {
         const search = searchFilter.toLowerCase()
+        const itemName = order.inventory_items?.name || ''
         if (
-          !order.item_name?.toLowerCase().includes(search) &&
+          !itemName.toLowerCase().includes(search) &&
           !order.customer_name?.toLowerCase().includes(search) &&
-          !order.id?.toLowerCase().includes(search)
+          !String(order.id).toLowerCase().includes(search)
         ) return false
       }
       return true
@@ -72,7 +73,11 @@ export default function DispatchDashboard({ orders, onDispatch }) {
           </h2>
         </div>
 
-        {filteredOrders.length === 0 ? (
+        {loading ? (
+          <div className="empty-state">
+            <h3>Loading dispatch orders...</h3>
+          </div>
+        ) : filteredOrders.length === 0 ? (
           <div className="empty-state">
             <h3>No orders to dispatch</h3>
             <p>Orders will appear here once approved by an admin.</p>
@@ -98,11 +103,11 @@ export default function DispatchDashboard({ orders, onDispatch }) {
                   <tbody>
                     {filteredOrders.map(order => (
                       <tr key={order.id}>
-                        <td><span className="order-id">{order.id}</span></td>
+                        <td><span className="order-id">#{order.id}</span></td>
                         <td>
                           <div className="item-info">
-                            <strong className="item-name">{order.item_name}</strong>
-                            <span className="item-category-text">{order.item_category}</span>
+                            <strong className="item-name">{order.inventory_items?.name || 'Unknown'}</strong>
+                            <span className="item-category-text">{order.inventory_items?.item_category || ''}</span>
                           </div>
                         </td>
                         <td><strong>{order.customer_name}</strong></td>
@@ -132,13 +137,13 @@ export default function DispatchDashboard({ orders, onDispatch }) {
               {filteredOrders.map(order => (
                 <div key={order.id} className="inventory-card">
                   <div className="card-header">
-                    <h5 className="card-title">{order.item_name}</h5>
+                    <h5 className="card-title">{order.inventory_items?.name || 'Unknown'}</h5>
                     <span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span>
                   </div>
                   <div className="card-details">
                     <div className="card-detail">
                       <div className="card-detail-label">Order ID</div>
-                      <div className="card-detail-value">{order.id}</div>
+                      <div className="card-detail-value">#{order.id}</div>
                     </div>
                     <div className="card-detail">
                       <div className="card-detail-label">Quantity</div>

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { CURRENT_USER } from '../shared/auth'
+import { salesOrderService, inventoryStockService } from '../../backend'
 
 export default function CreateSaleModal({ item, onClose, onSubmit }) {
   const [quantity, setQuantity] = useState('')
@@ -9,10 +10,11 @@ export default function CreateSaleModal({ item, onClose, onSubmit }) {
   const [customerContact, setCustomerContact] = useState('')
   const [notes, setNotes] = useState('')
   const [error, setError] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   const available = item.quantity - (item.blocked_qty || 0)
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault()
     setError('')
 
@@ -30,24 +32,31 @@ export default function CreateSaleModal({ item, onClose, onSubmit }) {
       return
     }
 
-    onSubmit({
-      id: `so-${Date.now()}`,
+    setSubmitting(true)
+
+    // Create sales order in DB
+    const { data: order, error: createError } = await salesOrderService.create({
       inventory_stock_id: item.id,
       item_id: item.item_id,
-      item_name: item.inventory_items?.name || 'Unknown',
-      item_category: item.inventory_items?.item_category || 'Unknown',
       quantity: qty,
-      status: 'pending',
       customer_name: customerName.trim(),
       customer_contact: customerContact.trim(),
       notes: notes.trim(),
-      created_by: CURRENT_USER.id,
-      created_by_name: CURRENT_USER.full_name,
-      approved_by: null,
-      dispatched_by: null,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
     })
+
+    if (createError || !order) {
+      setError('Failed to create sale order. Please try again.')
+      console.error('Create sale error:', createError)
+      setSubmitting(false)
+      return
+    }
+
+    // Block the quantity in inventory
+    const newBlocked = (item.blocked_qty || 0) + qty
+    await inventoryStockService.updateBlockedQty(item.id, newBlocked, item.item_id)
+
+    setSubmitting(false)
+    onSubmit(order)
   }
 
   return (
@@ -119,8 +128,10 @@ export default function CreateSaleModal({ item, onClose, onSubmit }) {
             {error && <div className="form-error">{error}</div>}
 
             <div className="modal-actions">
-              <button type="button" className="btn-secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-primary">Create Sale Order</button>
+              <button type="button" className="btn-secondary" onClick={onClose} disabled={submitting}>Cancel</button>
+              <button type="submit" className="btn-primary" disabled={submitting}>
+                {submitting ? 'Creating...' : 'Create Sale Order'}
+              </button>
             </div>
           </form>
         </div>
