@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { CURRENT_USER } from '../shared/auth'
 import { salesOrderService, inventoryStockService } from '../../backend'
 
 export default function CreateSaleModal({ item, onClose, onSubmit }) {

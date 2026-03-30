@@ -6,6 +6,7 @@ const TABS = [
   { id: 'inventory', label: 'Inventory' },
   { id: 'sales', label: 'Sales Orders' },
   { id: 'dispatch', label: 'Dispatch' },
+  { id: 'team', label: 'Team' },
 ]
 
 export default function TabNavigation({ activeTab, onTabChange }) {

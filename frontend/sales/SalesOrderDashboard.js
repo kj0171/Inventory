@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, Fragment } from 'react'
-import { CURRENT_USER, ROLES } from '../shared/auth'
+import { useAuth, ROLES } from '../shared/auth'
 import { getStatusClass, formatDate } from '../shared/utils'
 
 export default function SalesOrderDashboard({ orders, loading, onApprove, onReject }) {
@@ -38,7 +38,8 @@ export default function SalesOrderDashboard({ orders, loading, onApprove, onReje
     rejected: orders.filter(o => o.status === 'rejected').length,
   }), [orders])
 
-  const isAdmin = CURRENT_USER.role === ROLES.ADMIN
+  const { user } = useAuth()
+  const isAdmin = user?.profile?.role === ROLES.ADMIN
 
   function renderItemsSummary(items) {
     if (!items || items.length === 0) return 'No items'

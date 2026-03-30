@@ -1,7 +1,7 @@
-import AppDashboard from '../frontend/AppDashboard'
+import SignInPage from '../frontend/auth/SignInPage'
 
 export default function Home() {
   return (
-    <AppDashboard />
+    <SignInPage />
   )
 }
