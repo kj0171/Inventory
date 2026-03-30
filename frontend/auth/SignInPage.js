@@ -3,9 +3,11 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { authService } from '../../backend'
+import { useAuth } from '../shared/auth'
 
 export default function SignInPage() {
   const router = useRouter()
+  const { setUser } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -17,18 +19,19 @@ export default function SignInPage() {
     setLoading(true)
 
     try {
-      console.log('Signing in...')
-      const { user, error: authError } = await authService.signIn(email, password)
-      console.log('Sign in result:', { user: !!user, error: authError })
+      const { user, session, error: authError } = await authService.signIn(email, password)
 
       if (authError || !user) {
         setError(authError?.message || 'Sign in failed')
         return
       }
 
+      // Fetch profile and set in context
+      const profile = await authService.fetchProfile(user.id)
+      setUser({ ...user, access_token: session?.access_token, profile })
+
       router.push('/dashboard')
     } catch (err) {
-      console.error('Sign in exception:', err)
       setError(err.message || 'Something went wrong')
     } finally {
       setLoading(false)
