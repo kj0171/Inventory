@@ -1,16 +1,23 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import TabNavigation from './shared/TabNavigation'
-import { CURRENT_USER } from './shared/auth'
-import { salesOrderService, inventoryStockService } from '../backend'
+import { useRouter } from 'next/navigation'
+import Sidebar from './shared/Sidebar'
+import { useAuth, ROLES } from './shared/auth'
+import { salesOrderService, inventoryStockService, authService } from '../backend'
 import InventoryDashboard from './inventory/InventoryDashboard'
 import SalesOrderDashboard from './sales/SalesOrderDashboard'
 import DispatchDashboard from './dispatch/DispatchDashboard'
+import TeamManagement from './team/TeamManagement'
 import CartDrawer from './inventory/CartDrawer'
 
 export default function AppDashboard() {
-  const [activeTab, setActiveTab] = useState('inventory')
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
+  const [activeSection, setActiveSection] = useState('inventory')
+  const [orderSubTab, setOrderSubTab] = useState('sales')
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [salesOrders, setSalesOrders] = useState([])
   const [loadingOrders, setLoadingOrders] = useState(true)
 
@@ -32,8 +39,33 @@ export default function AppDashboard() {
   }, [])
 
   useEffect(() => {
-    fetchOrders()
-  }, [fetchOrders])
+    if (user) fetchOrders()
+  }, [fetchOrders, user])
+
+  // Redirect to sign-in if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/')
+    }
+  }, [authLoading, user, router])
+
+  async function handleSignOut() {
+    await authService.signOut()
+    router.push('/')
+  }
+
+  // Early returns AFTER all hooks
+  if (authLoading) {
+    return (
+      <div className="signin-wrapper">
+        <div className="signin-card" style={{ textAlign: 'center', padding: '60px 30px' }}>
+          <p style={{ color: '#666' }}>Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) return null
 
   // ---- Cart handlers ----
 
@@ -191,56 +223,98 @@ export default function AppDashboard() {
 
   const dispatchOrders = salesOrders.filter(o => o.status === 'approved' || o.status === 'dispatched')
 
+
   return (
-    <div className="dashboard-container">
-      <div className="dashboard-header">
-        <div className="header-top">
-          <div>
-            <h1 className="dashboard-title">Inventory Management</h1>
-            <p className="dashboard-subtitle">Sales order workflow with inventory tracking</p>
+    <div className="app-layout">
+      <Sidebar
+        activeSection={activeSection}
+        onSectionChange={setActiveSection}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
+        mobileOpen={mobileMenuOpen}
+        onMobileClose={() => setMobileMenuOpen(false)}
+      />
+
+      <div className={`main-content ${sidebarCollapsed ? 'main-content-expanded' : ''}`}>
+        <div className="content-header">
+          <div className="content-header-left">
+            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>☰</button>
+            <div>
+              <h1 className="content-title">
+                {activeSection === 'inventory' && 'Inventory'}
+                {activeSection === 'orders' && 'Orders'}
+                {activeSection === 'team' && 'Team'}
+              </h1>
+              <p className="content-subtitle">
+                {activeSection === 'inventory' && 'Stock management and tracking'}
+                {activeSection === 'orders' && 'Sales orders and dispatch workflow'}
+                {activeSection === 'team' && 'Manage employees and roles'}
+              </p>
+            </div>
           </div>
           <div className="user-info">
-            <span className="user-name">{CURRENT_USER.full_name}</span>
-            <span className="user-role">{CURRENT_USER.role}</span>
+            <span className="user-name">{user.profile?.full_name || user.email}</span>
+            <span className="user-role">{user.profile?.role}</span>
+            <button className="btn-signout" onClick={handleSignOut}>Sign Out</button>
           </div>
         </div>
-      </div>
 
-      <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
+        {/* Orders sub-tabs */}
+        {activeSection === 'orders' && (
+          <div className="sub-tabs">
+            <button
+              className={`sub-tab ${orderSubTab === 'sales' ? 'sub-tab-active' : ''}`}
+              onClick={() => setOrderSubTab('sales')}
+            >
+              Sales Orders
+            </button>
+            <button
+              className={`sub-tab ${orderSubTab === 'dispatch' ? 'sub-tab-active' : ''}`}
+              onClick={() => setOrderSubTab('dispatch')}
+            >
+              Dispatch
+            </button>
+          </div>
+        )}
 
-      {activeTab === 'inventory' && (
-        <InventoryDashboard
-          key={inventoryRefreshKey}
+        {activeSection === 'inventory' && (
+          <InventoryDashboard
+            key={inventoryRefreshKey}
+            cartItems={cartItems}
+            onAddToCart={handleAddToCart}
+          />
+        )}
+
+        {activeSection === 'orders' && orderSubTab === 'sales' && (
+          <SalesOrderDashboard
+            orders={salesOrders}
+            loading={loadingOrders}
+            onApprove={handleApprove}
+            onReject={handleReject}
+          />
+        )}
+
+        {activeSection === 'orders' && orderSubTab === 'dispatch' && (
+          <DispatchDashboard
+            orders={dispatchOrders}
+            loading={loadingOrders}
+            onDispatch={handleDispatch}
+          />
+        )}
+
+        {activeSection === 'team' && (
+          <TeamManagement />
+        )}
+
+        <CartDrawer
           cartItems={cartItems}
-          onAddToCart={handleAddToCart}
+          isOpen={cartOpen}
+          onToggle={() => setCartOpen(!cartOpen)}
+          onUpdateQty={handleUpdateCartQty}
+          onRemoveItem={handleRemoveFromCart}
+          onSubmitOrder={handleSubmitOrder}
         />
-      )}
-
-      {activeTab === 'sales' && (
-        <SalesOrderDashboard
-          orders={salesOrders}
-          loading={loadingOrders}
-          onApprove={handleApprove}
-          onReject={handleReject}
-        />
-      )}
-
-      {activeTab === 'dispatch' && (
-        <DispatchDashboard
-          orders={dispatchOrders}
-          loading={loadingOrders}
-          onDispatch={handleDispatch}
-        />
-      )}
-
-      <CartDrawer
-        cartItems={cartItems}
-        isOpen={cartOpen}
-        onToggle={() => setCartOpen(!cartOpen)}
-        onUpdateQty={handleUpdateCartQty}
-        onRemoveItem={handleRemoveFromCart}
-        onSubmitOrder={handleSubmitOrder}
-      />
+      </div>
     </div>
   )
 }
