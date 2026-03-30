@@ -1,20 +1,26 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, Fragment } from 'react'
 import { getStatusClass, formatDate } from '../shared/utils'
 
 export default function DispatchDashboard({ orders, loading, onDispatch }) {
   const [searchFilter, setSearchFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('approved')
+  const [expandedOrders, setExpandedOrders] = useState({})
+
+  function toggleExpand(orderId) {
+    setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
+  }
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false
       if (searchFilter) {
         const search = searchFilter.toLowerCase()
-        const itemName = order.inventory_items?.name || ''
+        const itemNames = (order.sales_order_items || [])
+          .map(li => li.inventory_items?.name || '').join(' ').toLowerCase()
         if (
-          !itemName.toLowerCase().includes(search) &&
+          !itemNames.includes(search) &&
           !order.customer_name?.toLowerCase().includes(search) &&
           !String(order.id).toLowerCase().includes(search)
         ) return false
@@ -25,6 +31,16 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
 
   const readyCount = orders.filter(o => o.status === 'approved').length
   const dispatchedCount = orders.filter(o => o.status === 'dispatched').length
+
+  function renderItemsSummary(items) {
+    if (!items || items.length === 0) return 'No items'
+    if (items.length === 1) return items[0].inventory_items?.name || 'Unknown'
+    return `${items[0].inventory_items?.name || 'Unknown'} +${items.length - 1} more`
+  }
+
+  function getTotalQty(items) {
+    return (items || []).reduce((sum, li) => sum + li.quantity, 0)
+  }
 
   return (
     <>
@@ -91,42 +107,66 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
                   <thead>
                     <tr>
                       <th>Order ID</th>
-                      <th>Item</th>
                       <th>Customer</th>
-                      <th>Contact</th>
-                      <th>Qty</th>
+                      <th>Items</th>
+                      <th>Total Qty</th>
                       <th>Status</th>
                       <th>Approved On</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredOrders.map(order => (
-                      <tr key={order.id}>
-                        <td><span className="order-id">#{order.id}</span></td>
-                        <td>
-                          <div className="item-info">
-                            <strong className="item-name">{order.inventory_items?.name || 'Unknown'}</strong>
-                            <span className="item-category-text">{order.inventory_items?.item_category || ''}</span>
-                          </div>
-                        </td>
-                        <td><strong>{order.customer_name}</strong></td>
-                        <td>{order.customer_contact || '—'}</td>
-                        <td><span className="quantity-badge quantity-medium">{order.quantity} units</span></td>
-                        <td><span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span></td>
-                        <td><span className="date-text">{formatDate(order.updated_at)}</span></td>
-                        <td>
-                          {order.status === 'approved' && (
-                            <button className="btn-dispatch" onClick={() => onDispatch(order.id)}>
-                              Mark Dispatched
-                            </button>
-                          )}
-                          {order.status === 'dispatched' && (
-                            <span className="dispatched-label">Completed</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
+                    {filteredOrders.map(order => {
+                      const items = order.sales_order_items || []
+                      const isExpanded = expandedOrders[order.id]
+                      return (
+                        <Fragment key={order.id}>
+                          <tr className="order-row clickable" onClick={() => toggleExpand(order.id)}>
+                            <td><span className="order-id">#{order.id}</span></td>
+                            <td>
+                              <div className="customer-info">
+                                <strong>{order.customer_name}</strong>
+                                {order.customer_contact && (
+                                  <span className="customer-contact">{order.customer_contact}</span>
+                                )}
+                              </div>
+                            </td>
+                            <td>
+                              <div className="item-info">
+                                <strong className="item-name">{renderItemsSummary(items)}</strong>
+                                <span className="item-category-text">{items.length} {items.length === 1 ? 'item' : 'items'}</span>
+                              </div>
+                            </td>
+                            <td><span className="quantity-badge quantity-medium">{getTotalQty(items)} units</span></td>
+                            <td><span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span></td>
+                            <td><span className="date-text">{formatDate(order.updated_at)}</span></td>
+                            <td onClick={(e) => e.stopPropagation()}>
+                              {order.status === 'approved' && (
+                                <button className="btn-dispatch" onClick={() => onDispatch(order.id)}>
+                                  Mark Dispatched
+                                </button>
+                              )}
+                              {order.status === 'dispatched' && (
+                                <span className="dispatched-label">Completed</span>
+                              )}
+                            </td>
+                          </tr>
+                          {isExpanded && items.map(li => (
+                            <tr key={li.id} className="line-item-row">
+                              <td></td>
+                              <td colSpan={2}>
+                                <div className="line-item-detail">
+                                  <span className="line-item-name">{li.inventory_items?.name || 'Unknown'}</span>
+                                  <span className="line-item-category">{li.inventory_items?.item_category || ''}</span>
+                                </div>
+                              </td>
+                              <td><span className="quantity-badge">{li.quantity} units</span></td>
+                              <td colSpan={3}></td>
+                            </tr>
+                          ))}
+                        </Fragment>
+                      )
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -134,37 +174,47 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
 
             {/* Mobile view */}
             <div className="mobile-cards">
-              {filteredOrders.map(order => (
-                <div key={order.id} className="inventory-card">
-                  <div className="card-header">
-                    <h5 className="card-title">{order.inventory_items?.name || 'Unknown'}</h5>
-                    <span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span>
+              {filteredOrders.map(order => {
+                const items = order.sales_order_items || []
+                const isExpanded = expandedOrders[order.id]
+                return (
+                  <div key={order.id} className="inventory-card">
+                    <div className="card-header" onClick={() => toggleExpand(order.id)}>
+                      <h5 className="card-title">{order.customer_name}</h5>
+                      <span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span>
+                    </div>
+                    <div className="card-details">
+                      <div className="card-detail">
+                        <div className="card-detail-label">Order ID</div>
+                        <div className="card-detail-value">#{order.id}</div>
+                      </div>
+                      <div className="card-detail">
+                        <div className="card-detail-label">Items</div>
+                        <div className="card-detail-value">{renderItemsSummary(items)}</div>
+                      </div>
+                      <div className="card-detail">
+                        <div className="card-detail-label">Total Qty</div>
+                        <div className="card-detail-value">{getTotalQty(items)} units</div>
+                      </div>
+                    </div>
+                    {isExpanded && (
+                      <div className="order-line-items-mobile">
+                        {items.map(li => (
+                          <div key={li.id} className="line-item-mobile">
+                            <span className="line-item-name">{li.inventory_items?.name || 'Unknown'}</span>
+                            <span className="line-item-qty">{li.quantity} units</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {order.status === 'approved' && (
+                      <div className="card-actions">
+                        <button className="btn-dispatch" onClick={() => onDispatch(order.id)}>Mark Dispatched</button>
+                      </div>
+                    )}
                   </div>
-                  <div className="card-details">
-                    <div className="card-detail">
-                      <div className="card-detail-label">Order ID</div>
-                      <div className="card-detail-value">#{order.id}</div>
-                    </div>
-                    <div className="card-detail">
-                      <div className="card-detail-label">Quantity</div>
-                      <div className="card-detail-value">{order.quantity} units</div>
-                    </div>
-                    <div className="card-detail">
-                      <div className="card-detail-label">Customer</div>
-                      <div className="card-detail-value">{order.customer_name}</div>
-                    </div>
-                    <div className="card-detail">
-                      <div className="card-detail-label">Contact</div>
-                      <div className="card-detail-value">{order.customer_contact || '—'}</div>
-                    </div>
-                  </div>
-                  {order.status === 'approved' && (
-                    <div className="card-actions">
-                      <button className="btn-dispatch" onClick={() => onDispatch(order.id)}>Mark Dispatched</button>
-                    </div>
-                  )}
-                </div>
-              ))}
+                )
+              })}
             </div>
           </>
         )}

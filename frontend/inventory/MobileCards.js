@@ -2,8 +2,12 @@ import { getCategoryClass, getQuantityClass } from '../shared/utils'
 
 export default function MobileCards({
   groupedData, collapsedCategories, collapsedItemGroups,
-  onToggleCategory, onToggleItemGroup, onCreateSale
+  onToggleCategory, onToggleItemGroup, onAddToCart, cartItems = []
 }) {
+  function getCartQty(stockId) {
+    const item = cartItems.find(c => c.inventory_stock_id === stockId)
+    return item ? item.quantity : 0
+  }
   return (
     <div className="mobile-cards">
       {Object.entries(groupedData).map(([category, itemGroups]) => {
@@ -86,7 +90,12 @@ export default function MobileCards({
                               </div>
                               {available > 0 && (
                                 <div className="card-actions">
-                                  <button className="btn-create-sale" onClick={() => onCreateSale(row)}>Create Sale</button>
+                                  <button
+                                    className={`btn-add-cart ${getCartQty(row.id) > 0 ? 'in-cart' : ''}`}
+                                    onClick={() => onAddToCart(row)}
+                                  >
+                                    {getCartQty(row.id) > 0 ? `In Cart (${getCartQty(row.id)})` : 'Add to Cart'}
+                                  </button>
                                 </div>
                               )}
                             </div>
