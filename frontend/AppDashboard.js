@@ -7,11 +7,18 @@ import { salesOrderService, inventoryStockService } from '../backend'
 import InventoryDashboard from './inventory/InventoryDashboard'
 import SalesOrderDashboard from './sales/SalesOrderDashboard'
 import DispatchDashboard from './dispatch/DispatchDashboard'
+import CartDrawer from './inventory/CartDrawer'
 
 export default function AppDashboard() {
   const [activeTab, setActiveTab] = useState('inventory')
   const [salesOrders, setSalesOrders] = useState([])
   const [loadingOrders, setLoadingOrders] = useState(true)
+
+  // Cart state — persists across tab switches
+  const [cartItems, setCartItems] = useState([])
+  const [cartOpen, setCartOpen] = useState(false)
+  // Increment to force InventoryDashboard remount after order submit
+  const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0)
 
   const fetchOrders = useCallback(async () => {
     setLoadingOrders(true)
@@ -28,14 +35,105 @@ export default function AppDashboard() {
     fetchOrders()
   }, [fetchOrders])
 
-  function handleSaleCreated(order) {
-    setSalesOrders(prev => [order, ...prev])
+  // ---- Cart handlers ----
+
+  function handleAddToCart(item, quantity) {
+    setCartItems(prev => {
+      const existing = prev.find(c => c.inventory_stock_id === item.id)
+      if (existing) {
+        return prev.map(c =>
+          c.inventory_stock_id === item.id ? { ...c, quantity } : c
+        )
+      }
+      return [...prev, {
+        inventory_stock_id: item.id,
+        item_id: item.item_id,
+        itemName: item.inventory_items?.name || 'Unknown',
+        itemCategory: item.inventory_items?.item_category || '',
+        quantity,
+        maxAvailable: item.quantity - (item.blocked_qty || 0),
+      }]
+    })
   }
+
+  function handleRemoveFromCart(stockId) {
+    setCartItems(prev => prev.filter(c => c.inventory_stock_id !== stockId))
+  }
+
+  function handleUpdateCartQty(stockId, quantity) {
+    setCartItems(prev =>
+      prev.map(c => c.inventory_stock_id === stockId ? { ...c, quantity } : c)
+    )
+  }
+
+  // ---- Order submit (validate → create → block) ----
+
+  async function handleSubmitOrder(customerInfo) {
+    // 1. Validate availability against live DB
+    const { data: stockData } = await inventoryStockService.getAll()
+    if (!stockData) {
+      alert('Failed to validate stock. Please try again.')
+      return false
+    }
+
+    const errors = []
+    for (const cartItem of cartItems) {
+      const stock = stockData.find(s => s.id === cartItem.inventory_stock_id)
+      if (!stock) {
+        errors.push(`${cartItem.itemName}: item not found`)
+        continue
+      }
+      const available = stock.quantity - (stock.blocked_qty || 0)
+      if (cartItem.quantity > available) {
+        errors.push(`${cartItem.itemName}: requested ${cartItem.quantity}, only ${available} available`)
+      }
+    }
+
+    if (errors.length > 0) {
+      alert('Order validation failed:\n\n' + errors.join('\n'))
+      return false
+    }
+
+    // 2. Create order with line items
+    const { data: order, error: createError } = await salesOrderService.create({
+      customer_name: customerInfo.customer_name,
+      customer_contact: customerInfo.customer_contact,
+      notes: customerInfo.notes,
+      items: cartItems.map(c => ({
+        inventory_stock_id: c.inventory_stock_id,
+        item_id: c.item_id,
+        quantity: c.quantity,
+      })),
+    })
+
+    if (createError || !order) {
+      alert('Failed to create order. Please try again.')
+      console.error('Create order error:', createError)
+      return false
+    }
+
+    // 3. Block quantities for all line items
+    for (const cartItem of cartItems) {
+      const stock = stockData.find(s => s.id === cartItem.inventory_stock_id)
+      if (stock) {
+        const newBlocked = (stock.blocked_qty || 0) + cartItem.quantity
+        await inventoryStockService.updateBlockedQty(stock.id, newBlocked, cartItem.item_id)
+      }
+    }
+
+    // 4. Update state
+    setSalesOrders(prev => [order, ...prev])
+    setCartItems([])
+    setCartOpen(false)
+    setInventoryRefreshKey(prev => prev + 1)
+    return true
+  }
+
+  // ---- Order status handlers ----
 
   async function handleApprove(orderId) {
     const { data, error } = await salesOrderService.updateStatus(orderId, 'approved')
     if (error) {
-      console.error('Error approving order:', error)
       alert('Failed to approve order.')
       return
     }
@@ -43,26 +141,27 @@ export default function AppDashboard() {
   }
 
   async function handleReject(orderId) {
-    // Find the order to unblock its quantity
     const order = salesOrders.find(o => o.id === orderId)
 
     const { data, error } = await salesOrderService.updateStatus(orderId, 'rejected')
     if (error) {
-      console.error('Error rejecting order:', error)
       alert('Failed to reject order.')
       return
     }
     setSalesOrders(prev => prev.map(o => o.id === orderId ? data : o))
 
-    // Unblock the quantity
-    if (order) {
+    // Unblock quantities for all line items
+    if (order?.sales_order_items) {
       const { data: stockData } = await inventoryStockService.getAll()
-      const stock = stockData?.find(s => s.id === order.inventory_stock_id)
-      if (stock) {
-        const newBlocked = Math.max(0, (stock.blocked_qty || 0) - order.quantity)
-        await inventoryStockService.updateBlockedQty(stock.id, newBlocked, order.item_id)
+      for (const lineItem of order.sales_order_items) {
+        const stock = stockData?.find(s => s.id === lineItem.inventory_stock_id)
+        if (stock) {
+          const newBlocked = Math.max(0, (stock.blocked_qty || 0) - lineItem.quantity)
+          await inventoryStockService.updateBlockedQty(stock.id, newBlocked, lineItem.item_id)
+        }
       }
     }
+    setInventoryRefreshKey(prev => prev + 1)
   }
 
   async function handleDispatch(orderId) {
@@ -70,22 +169,24 @@ export default function AppDashboard() {
 
     const { data, error } = await salesOrderService.updateStatus(orderId, 'dispatched')
     if (error) {
-      console.error('Error dispatching order:', error)
       alert('Failed to dispatch order.')
       return
     }
     setSalesOrders(prev => prev.map(o => o.id === orderId ? data : o))
 
-    // Reduce both blocked_qty and quantity on dispatch
-    if (order) {
+    // Reduce quantity + unblock for all line items
+    if (order?.sales_order_items) {
       const { data: stockData } = await inventoryStockService.getAll()
-      const stock = stockData?.find(s => s.id === order.inventory_stock_id)
-      if (stock) {
-        const newBlocked = Math.max(0, (stock.blocked_qty || 0) - order.quantity)
-        await inventoryStockService.updateBlockedQty(stock.id, newBlocked, order.item_id)
-        await inventoryStockService.reduceQuantity(stock.id, order.quantity, order.item_id)
+      for (const lineItem of order.sales_order_items) {
+        const stock = stockData?.find(s => s.id === lineItem.inventory_stock_id)
+        if (stock) {
+          const newBlocked = Math.max(0, (stock.blocked_qty || 0) - lineItem.quantity)
+          await inventoryStockService.updateBlockedQty(stock.id, newBlocked, lineItem.item_id)
+          await inventoryStockService.reduceQuantity(stock.id, lineItem.quantity, lineItem.item_id)
+        }
       }
     }
+    setInventoryRefreshKey(prev => prev + 1)
   }
 
   const dispatchOrders = salesOrders.filter(o => o.status === 'approved' || o.status === 'dispatched')
@@ -108,7 +209,11 @@ export default function AppDashboard() {
       <TabNavigation activeTab={activeTab} onTabChange={setActiveTab} />
 
       {activeTab === 'inventory' && (
-        <InventoryDashboard onSaleCreated={handleSaleCreated} />
+        <InventoryDashboard
+          key={inventoryRefreshKey}
+          cartItems={cartItems}
+          onAddToCart={handleAddToCart}
+        />
       )}
 
       {activeTab === 'sales' && (
@@ -127,6 +232,15 @@ export default function AppDashboard() {
           onDispatch={handleDispatch}
         />
       )}
+
+      <CartDrawer
+        cartItems={cartItems}
+        isOpen={cartOpen}
+        onToggle={() => setCartOpen(!cartOpen)}
+        onUpdateQty={handleUpdateCartQty}
+        onRemoveItem={handleRemoveFromCart}
+        onSubmitOrder={handleSubmitOrder}
+      />
     </div>
   )
 }

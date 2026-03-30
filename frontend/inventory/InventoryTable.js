@@ -4,7 +4,7 @@ import MobileCards from './MobileCards'
 export default function InventoryTable({
   filteredData, groupedData, data,
   collapsedCategories, collapsedItemGroups,
-  onToggleCategory, onToggleItemGroup, onToggleAll, onCreateSale
+  onToggleCategory, onToggleItemGroup, onToggleAll, onAddToCart, cartItems
 }) {
   return (
     <div className="table-container">
@@ -40,7 +40,8 @@ export default function InventoryTable({
             collapsedItemGroups={collapsedItemGroups}
             onToggleCategory={onToggleCategory}
             onToggleItemGroup={onToggleItemGroup}
-            onCreateSale={onCreateSale}
+            onAddToCart={onAddToCart}
+            cartItems={cartItems}
           />
           <MobileCards
             groupedData={groupedData}
@@ -48,7 +49,8 @@ export default function InventoryTable({
             collapsedItemGroups={collapsedItemGroups}
             onToggleCategory={onToggleCategory}
             onToggleItemGroup={onToggleItemGroup}
-            onCreateSale={onCreateSale}
+            onAddToCart={onAddToCart}
+            cartItems={cartItems}
           />
         </>
       )}

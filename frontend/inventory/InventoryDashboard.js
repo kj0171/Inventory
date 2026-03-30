@@ -5,14 +5,14 @@ import { inventoryStockService } from '../../backend'
 import StatsGrid from './StatsGrid'
 import Filters from './Filters'
 import InventoryTable from './InventoryTable'
-import CreateSaleModal from './CreateSaleModal'
+import AddToCartModal from './AddToCartModal'
 
-export default function InventoryDashboard({ onSaleCreated }) {
+export default function InventoryDashboard({ cartItems, onAddToCart }) {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [collapsedCategories, setCollapsedCategories] = useState({})
   const [collapsedItemGroups, setCollapsedItemGroups] = useState({})
-  const [saleItem, setSaleItem] = useState(null)
+  const [cartModalItem, setCartModalItem] = useState(null)
   const [filters, setFilters] = useState({
     search: '',
     category: 'all',
@@ -170,19 +170,13 @@ export default function InventoryDashboard({ onSaleCreated }) {
     }
   }
 
-  function handleCreateSale(item) {
-    setSaleItem(item)
+  function handleOpenCartModal(item) {
+    setCartModalItem(item)
   }
 
-  function handleSaleSubmit(saleData) {
-    // Update local blocked_qty
-    setData(prev => prev.map(d =>
-      d.id === saleData.inventory_stock_id
-        ? { ...d, blocked_qty: (d.blocked_qty || 0) + saleData.quantity }
-        : d
-    ))
-    setSaleItem(null)
-    if (onSaleCreated) onSaleCreated(saleData)
+  function handleCartAdd(item, qty) {
+    onAddToCart(item, qty)
+    setCartModalItem(null)
   }
 
   function exportData() {
@@ -238,14 +232,16 @@ export default function InventoryDashboard({ onSaleCreated }) {
         onToggleCategory={toggleCategoryCollapse}
         onToggleItemGroup={toggleItemGroupCollapse}
         onToggleAll={toggleAllCategories}
-        onCreateSale={handleCreateSale}
+        onAddToCart={handleOpenCartModal}
+        cartItems={cartItems}
       />
 
-      {saleItem && (
-        <CreateSaleModal
-          item={saleItem}
-          onClose={() => setSaleItem(null)}
-          onSubmit={handleSaleSubmit}
+      {cartModalItem && (
+        <AddToCartModal
+          item={cartModalItem}
+          currentCartQty={(cartItems || []).find(c => c.inventory_stock_id === cartModalItem.id)?.quantity || 0}
+          onClose={() => setCartModalItem(null)}
+          onAdd={handleCartAdd}
         />
       )}
     </>
