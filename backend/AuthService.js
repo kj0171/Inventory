@@ -5,18 +5,7 @@ export class AuthService {
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) return { user: null, error }
-
-      // Fetch profile — never block sign-in
-      let profile = null
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', data.user.id)
-        .maybeSingle()
-      if (!profileError) profile = profileData
-      else console.warn('Profile fetch error:', profileError.message)
-
-      return { user: { ...data.user, access_token: data.session?.access_token, profile }, error: null }
+      return { user: data.user, session: data.session, error: null }
     } catch (e) {
       return { user: null, error: { message: e.message || 'Sign in failed' } }
     }
@@ -50,6 +39,20 @@ export class AuthService {
 
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange(callback)
+  }
+
+  async fetchProfile(userId) {
+    try {
+      const { data } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .maybeSingle()
+      return data
+    } catch (e) {
+      console.warn('Profile fetch failed:', e)
+      return null
+    }
   }
 }
 
