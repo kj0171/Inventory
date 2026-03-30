@@ -2578,6 +2578,67 @@ tr:last-child td {
   padding: 12px 8px;
 }
 
+/* Sidebar footer */
+.sidebar-footer {
+  margin-top: auto;
+  padding: 12px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sidebar-user {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 14px;
+  margin-bottom: 4px;
+}
+
+.sidebar-user-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.9);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sidebar-user-role {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: capitalize;
+}
+
+.sidebar-signout {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.65);
+  cursor: pointer;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  text-align: left;
+  width: 100%;
+  font-family: inherit;
+}
+
+.sidebar-signout:hover {
+  background: rgba(239, 83, 80, 0.2);
+  color: #ef5350;
+}
+
+.sidebar-collapsed .sidebar-signout {
+  justify-content: center;
+  padding: 12px 8px;
+}
+
+.sidebar-collapsed .sidebar-footer .sidebar-user {
+  display: none;
+}
+
 /* ======= Main Content Area ======= */
 
 .main-content {
@@ -2978,5 +3039,43 @@ tr:last-child td {
 
   .team-modal {
     max-width: calc(100% - 30px);
+  }
+
+  /* Team table → card layout on mobile */
+  .team-management .table-container table thead {
+    display: none;
+  }
+
+  .team-management .table-container table,
+  .team-management .table-container table tbody,
+  .team-management .table-container table tr,
+  .team-management .table-container table td {
+    display: block;
+    width: 100%;
+  }
+
+  .team-management .table-container table tr {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+  }
+
+  .team-management .table-container table td {
+    padding: 4px 0;
+    border: none;
+    text-align: left;
+  }
+
+  .team-management .table-container table td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    font-size: 0.75rem;
+    color: #888;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 2px;
   }
 }

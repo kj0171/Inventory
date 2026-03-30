@@ -233,6 +233,7 @@ export default function AppDashboard() {
         onToggleCollapse={() => setSidebarCollapsed(prev => !prev)}
         mobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
+        onSignOut={handleSignOut}
       />
 
       <div className={`main-content ${sidebarCollapsed ? 'main-content-expanded' : ''}`}>
@@ -255,7 +256,6 @@ export default function AppDashboard() {
           <div className="user-info">
             <span className="user-name">{user.profile?.full_name || user.email}</span>
             <span className="user-role">{user.profile?.role}</span>
-            <button className="btn-signout" onClick={handleSignOut}>Sign Out</button>
           </div>
         </div>
 

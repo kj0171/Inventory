@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { id: 'team', label: 'Team', icon: '👥' },
 ]
 
-export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose }) {
+export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose, onSignOut }) {
   const { user } = useAuth()
   const role = user?.profile?.role || ''
   const visibleItems = NAV_ITEMS.filter(item => canAccessWithRole(role, item.id))
@@ -44,6 +44,19 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
             </button>
           ))}
         </nav>
+
+        <div className="sidebar-footer">
+          {!collapsed && user && (
+            <div className="sidebar-user">
+              <span className="sidebar-user-name">{user.profile?.full_name || user.email}</span>
+              <span className="sidebar-user-role">{user.profile?.role}</span>
+            </div>
+          )}
+          <button className="sidebar-signout" onClick={onSignOut} title="Sign Out">
+            <span className="sidebar-icon">🚪</span>
+            {!collapsed && <span className="sidebar-label">Sign Out</span>}
+          </button>
+        </div>
       </aside>
     </>
   )

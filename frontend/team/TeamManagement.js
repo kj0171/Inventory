@@ -193,11 +193,11 @@ export default function TeamManagement() {
             <tbody>
               {employees.map(emp => (
                 <tr key={emp.id}>
-                  <td><strong>{emp.full_name}</strong></td>
-                  <td>{emp.phone || '—'}</td>
-                  <td><span className={getRoleBadgeClass(emp.role)}>{emp.role}</span></td>
+                  <td data-label="Name"><strong>{emp.full_name}</strong></td>
+                  <td data-label="Phone">{emp.phone || '—'}</td>
+                  <td data-label="Role"><span className={getRoleBadgeClass(emp.role)}>{emp.role}</span></td>
                   {user?.profile?.role === ROLES.ADMIN && (
-                  <td>
+                  <td data-label="Actions">
                     <button className="btn-remove" onClick={() => handleRemove(emp.id)}>Remove</button>
                   </td>
                   )}
