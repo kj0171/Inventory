@@ -116,7 +116,7 @@ body {
 .table-container {
   background: white;
   border-radius: 16px;
-  overflow: hidden;
+  overflow-x: auto;
   box-shadow: 0 10px 30px rgba(0,0,0,0.1);
   border: 1px solid rgba(0,0,0,0.05);
 }
@@ -2766,6 +2766,19 @@ tr:last-child td {
 
 .team-management {
   margin-top: 0;
+  overflow-x: hidden;
+}
+
+.team-management .table-container table th,
+.team-management .table-container table td {
+  padding: 14px 10px;
+  font-size: 0.85rem;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.team-management .table-container table {
+  width: 100%;
 }
 
 .team-header {
@@ -2869,11 +2882,12 @@ tr:last-child td {
   background: none;
   border: 1px solid #ef5350;
   color: #ef5350;
-  padding: 6px 14px;
+  padding: 5px 10px;
   border-radius: 6px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
+  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
@@ -3477,31 +3491,61 @@ select.stock-input {
   }
 
   /* Team table → card layout on mobile */
+  .team-management {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .team-management .table-container {
+    background: transparent;
+    box-shadow: none;
+    border: none;
+    overflow: visible;
+    max-width: 100%;
+  }
+
   .team-management .table-container table thead {
     display: none;
   }
 
-  .team-management .table-container table,
-  .team-management .table-container table tbody,
-  .team-management .table-container table tr,
-  .team-management .table-container table td {
+  .team-management .table-container table {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .team-management .table-container table tbody {
     display: block;
     width: 100%;
   }
 
   .team-management .table-container table tr {
+    display: block;
+    width: 100%;
+    max-width: 100%;
     background: white;
     border-radius: 12px;
     padding: 16px;
     margin-bottom: 12px;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
     border: 1px solid rgba(0, 0, 0, 0.05);
+    box-sizing: border-box;
+    overflow: hidden;
   }
 
   .team-management .table-container table td {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     padding: 4px 0;
     border: none;
     text-align: left;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    box-sizing: border-box;
   }
 
   .team-management .table-container table td::before {
