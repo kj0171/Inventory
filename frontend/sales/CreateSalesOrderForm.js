@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import { inventoryStockService } from '../../backend'
+import { inventoryStockService, customerService } from '../../backend'
 
 function SearchableSelect({ options, value, onChange, placeholder }) {
   const [open, setOpen] = useState(false)
@@ -69,9 +69,15 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
 const EMPTY_ROW = { itemId: '', stockEntries: [], sortAsc: false }
 
 export default function CreateSalesOrderForm({ onOrderCreated }) {
+  const [selectedCustomerId, setSelectedCustomerId] = useState('')
+  const [customers, setCustomers] = useState([])
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
+  const [showNewCustomer, setShowNewCustomer] = useState(false)
+  const [newCustForm, setNewCustForm] = useState({ name: '', mobile: '', email: '', gst_number: '' })
+  const [newCustSubmitting, setNewCustSubmitting] = useState(false)
+  const [newCustError, setNewCustError] = useState('')
   const [rows, setRows] = useState([{ ...EMPTY_ROW }])
   const [stockData, setStockData] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -83,7 +89,57 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     if (data) setStockData(data)
   }, [])
 
-  useEffect(() => { fetchStock() }, [fetchStock])
+  const fetchCustomers = useCallback(async () => {
+    const { data } = await customerService.getAll()
+    if (data) setCustomers(data)
+  }, [])
+
+  useEffect(() => { fetchStock(); fetchCustomers() }, [fetchStock, fetchCustomers])
+
+  function handleCustomerSelect(custId) {
+    setSelectedCustomerId(custId)
+    const cust = customers.find(c => c.id === custId)
+    if (cust) {
+      setCustomerName(cust.name)
+      setCustomerPhone(cust.mobile || '')
+      setCustomerEmail(cust.email || '')
+    } else {
+      setCustomerName('')
+      setCustomerPhone('')
+      setCustomerEmail('')
+    }
+  }
+
+  async function handleCreateNewCustomer(e) {
+    e.preventDefault()
+    if (!newCustForm.name.trim() || !newCustForm.mobile.trim()) {
+      setNewCustError('Name and mobile are required')
+      return
+    }
+    setNewCustSubmitting(true)
+    setNewCustError('')
+    try {
+      const { data, error } = await customerService.create({
+        name: newCustForm.name.trim(),
+        mobile: newCustForm.mobile.trim(),
+        email: newCustForm.email.trim() || null,
+        gst_number: newCustForm.gst_number.trim() || null,
+      })
+      if (error) { setNewCustError(error.message); return }
+      // Add to list & select
+      setCustomers(prev => [...prev, data])
+      setSelectedCustomerId(data.id)
+      setCustomerName(data.name)
+      setCustomerPhone(data.mobile || '')
+      setCustomerEmail(data.email || '')
+      setShowNewCustomer(false)
+      setNewCustForm({ name: '', mobile: '', email: '', gst_number: '' })
+    } catch (err) {
+      setNewCustError(err.message || 'Failed to create customer')
+    } finally {
+      setNewCustSubmitting(false)
+    }
+  }
 
   // Group stock by item_id, only items with at least one available stock row
   const itemsWithStock = (() => {
@@ -158,13 +214,8 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     setSuccessMsg('')
     setErrorMsg('')
 
-    if (!customerName.trim()) {
-      setErrorMsg('Enter a customer name')
-      return
-    }
-
-    if (!customerPhone.trim()) {
-      setErrorMsg('Enter a phone number')
+    if (!selectedCustomerId) {
+      setErrorMsg('Select a customer')
       return
     }
 
@@ -207,6 +258,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
 
       if (success) {
         setSuccessMsg('Sales order created successfully')
+        setSelectedCustomerId('')
         setCustomerName('')
         setCustomerPhone('')
         setCustomerEmail('')
@@ -231,39 +283,79 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
       {errorMsg && <div className="signin-error">{errorMsg}</div>}
 
       <form onSubmit={handleSubmit}>
-        {/* Customer Info */}
+        {/* Customer Selection */}
         <div className="customer-info-section">
-          <div className="stock-field">
-            <label className="stock-label">Customer Name *</label>
-            <input
-              className="stock-input"
-              type="text"
-              placeholder="Enter customer name"
-              value={customerName}
-              onChange={e => setCustomerName(e.target.value)}
-            />
+          <div className="stock-field" style={{ gridColumn: '1 / -1' }}>
+            <label className="stock-label">Select Customer *</label>
+            <div className="customer-select-row">
+              <SearchableSelect
+                options={customers.map(c => ({
+                  value: c.id,
+                  label: `${c.name} — ${c.mobile}`,
+                }))}
+                value={selectedCustomerId}
+                onChange={handleCustomerSelect}
+                placeholder="Search customer..."
+              />
+              <button type="button" className="btn-secondary btn-sm" onClick={() => setShowNewCustomer(true)}>
+                + New
+              </button>
+            </div>
           </div>
-          <div className="stock-field">
-            <label className="stock-label">Phone Number *</label>
-            <input
-              className="stock-input"
-              type="tel"
-              placeholder="Enter phone number"
-              value={customerPhone}
-              onChange={e => setCustomerPhone(e.target.value)}
-            />
-          </div>
-          <div className="stock-field">
-            <label className="stock-label">Email</label>
-            <input
-              className="stock-input"
-              type="email"
-              placeholder="Enter email (optional)"
-              value={customerEmail}
-              onChange={e => setCustomerEmail(e.target.value)}
-            />
-          </div>
+          {selectedCustomerId && (
+            <>
+              <div className="stock-field">
+                <label className="stock-label">Phone</label>
+                <input className="stock-input" type="tel" value={customerPhone} readOnly />
+              </div>
+              <div className="stock-field">
+                <label className="stock-label">Email</label>
+                <input className="stock-input" type="email" value={customerEmail} readOnly />
+              </div>
+            </>
+          )}
         </div>
+
+        {/* Inline New Customer Modal */}
+        {showNewCustomer && (
+          <div className="modal-overlay" onClick={() => setShowNewCustomer(false)}>
+            <div className="team-modal" onClick={e => e.stopPropagation()}>
+              <div className="team-modal-header">
+                <h3>New Customer</h3>
+                <button type="button" className="modal-close-btn" onClick={() => setShowNewCustomer(false)}>✕</button>
+              </div>
+              <form className="team-form" onSubmit={handleCreateNewCustomer}>
+                {newCustError && <div className="signin-error">{newCustError}</div>}
+                <div className="signin-field">
+                  <label className="signin-label">Name *</label>
+                  <input className="signin-input" type="text" placeholder="Customer name" value={newCustForm.name}
+                    onChange={e => setNewCustForm(p => ({ ...p, name: e.target.value }))} autoFocus />
+                </div>
+                <div className="signin-field">
+                  <label className="signin-label">Mobile *</label>
+                  <input className="signin-input" type="tel" placeholder="Mobile number" value={newCustForm.mobile}
+                    onChange={e => setNewCustForm(p => ({ ...p, mobile: e.target.value }))} />
+                </div>
+                <div className="signin-field">
+                  <label className="signin-label">Email</label>
+                  <input className="signin-input" type="email" placeholder="Email (optional)" value={newCustForm.email}
+                    onChange={e => setNewCustForm(p => ({ ...p, email: e.target.value }))} />
+                </div>
+                <div className="signin-field">
+                  <label className="signin-label">GST Number</label>
+                  <input className="signin-input" type="text" placeholder="GST number (optional)" value={newCustForm.gst_number}
+                    onChange={e => setNewCustForm(p => ({ ...p, gst_number: e.target.value }))} />
+                </div>
+                <div className="team-form-actions">
+                  <button type="button" className="btn-secondary" onClick={() => setShowNewCustomer(false)}>Cancel</button>
+                  <button type="submit" className="btn-primary" disabled={newCustSubmitting}>
+                    {newCustSubmitting ? 'Creating...' : 'Add Customer'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
 
         {/* Item Rows */}
         {rows.map((row, index) => (

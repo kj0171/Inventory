@@ -3,3 +3,4 @@ export { inventoryStockService, InventoryStockService } from './InventoryStockSe
 export { salesOrderService, SalesOrderService } from './SalesOrderService'
 export { authService, AuthService } from './AuthService'
 export { userService, UserService } from './UserService'
+export { customerService, CustomerService } from './CustomerService'

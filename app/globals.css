@@ -3077,6 +3077,23 @@ select.stock-input {
   min-height: 60px;
 }
 
+.customer-select-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.customer-select-row .searchable-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.customer-select-row .btn-sm {
+  white-space: nowrap;
+  margin-top: 0;
+  height: 40px;
+}
+
 /* ======= Searchable Select ======= */
 
 .searchable-select {
