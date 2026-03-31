@@ -11,12 +11,13 @@ import DispatchDashboard from './dispatch/DispatchDashboard'
 import TeamManagement from './team/TeamManagement'
 import CartDrawer from './inventory/CartDrawer'
 import AddStockForm from './inventory/AddStockForm'
+import CreateSalesOrderForm from './sales/CreateSalesOrderForm'
 
 export default function AppDashboard() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [activeSection, setActiveSection] = useState('inventory')
-  const [orderSubTab, setOrderSubTab] = useState('sales')
+  const [orderSubTab, setOrderSubTab] = useState('createorder')
   const [inventorySubTab, setInventorySubTab] = useState('view')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
@@ -98,6 +99,52 @@ export default function AppDashboard() {
     setCartItems(prev =>
       prev.map(c => c.inventory_stock_id === stockId ? { ...c, quantity } : c)
     )
+  }
+
+  // ---- Create order from form (same logic as cart submit) ----
+
+  async function handleCreateOrder(orderPayload) {
+    const { data: stockData } = await inventoryStockService.getAll()
+    if (!stockData) {
+      alert('Failed to validate stock. Please try again.')
+      return false
+    }
+
+    const errors = []
+    for (const item of orderPayload.items) {
+      const stock = stockData.find(s => s.id === item.inventory_stock_id)
+      if (!stock) {
+        errors.push(`Item not found in stock`)
+        continue
+      }
+      const available = stock.quantity - (stock.blocked_qty || 0)
+      if (item.quantity > available) {
+        errors.push(`${stock.inventory_items?.name}: requested ${item.quantity}, only ${available} available`)
+      }
+    }
+
+    if (errors.length > 0) {
+      alert('Order validation failed:\n\n' + errors.join('\n'))
+      return false
+    }
+
+    const { data: order, error: createError } = await salesOrderService.create(orderPayload)
+    if (createError || !order) {
+      alert('Failed to create order. Please try again.')
+      return false
+    }
+
+    for (const item of orderPayload.items) {
+      const stock = stockData.find(s => s.id === item.inventory_stock_id)
+      if (stock) {
+        const newBlocked = (stock.blocked_qty || 0) + item.quantity
+        await inventoryStockService.updateBlockedQty(stock.id, newBlocked, item.item_id)
+      }
+    }
+
+    setSalesOrders(prev => [order, ...prev])
+    setInventoryRefreshKey(prev => prev + 1)
+    return true
   }
 
   // ---- Order submit (validate → create → block) ----
@@ -236,6 +283,8 @@ export default function AppDashboard() {
         mobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
         onSignOut={handleSignOut}
+        cartCount={cartItems.length}
+        onCartToggle={() => setCartOpen(!cartOpen)}
       />
 
       <div className={`main-content ${sidebarCollapsed ? 'main-content-expanded' : ''}`}>
@@ -285,6 +334,12 @@ export default function AppDashboard() {
         {activeSection === 'orders' && (
           <div className="sub-tabs">
             <button
+              className={`sub-tab ${orderSubTab === 'createorder' ? 'sub-tab-active' : ''}`}
+              onClick={() => setOrderSubTab('createorder')}
+            >
+              Create Order
+            </button>
+            <button
               className={`sub-tab ${orderSubTab === 'sales' ? 'sub-tab-active' : ''}`}
               onClick={() => setOrderSubTab('sales')}
             >
@@ -309,6 +364,10 @@ export default function AppDashboard() {
 
         {activeSection === 'inventory' && inventorySubTab === 'addstock' && (
           <AddStockForm onStockAdded={() => setInventoryRefreshKey(prev => prev + 1)} />
+        )}
+
+        {activeSection === 'orders' && orderSubTab === 'createorder' && (
+          <CreateSalesOrderForm onOrderCreated={handleCreateOrder} />
         )}
 
         {activeSection === 'orders' && orderSubTab === 'sales' && (
