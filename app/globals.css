@@ -2859,6 +2859,267 @@ tr:last-child td {
   color: white;
 }
 
+/* ======= Add Stock Form ======= */
+
+.add-stock-form {
+  margin-top: 0;
+}
+
+.add-stock-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.stock-success {
+  background: #e8f5e9;
+  color: #2e7d32;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  font-weight: 500;
+  font-size: 0.9rem;
+}
+
+.stock-row {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.stock-row-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.stock-row-number {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #667eea;
+  background: #f0f0ff;
+  padding: 4px 10px;
+  border-radius: 6px;
+}
+
+.stock-row-remove {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.stock-row-remove:hover {
+  background: #fce4ec;
+  color: #ef5350;
+}
+
+.stock-row-fields {
+  display: grid;
+  grid-template-columns: 120px 1fr 100px;
+  gap: 12px;
+  align-items: end;
+}
+
+.stock-row-fields:has(.stock-field-name) {
+  grid-template-columns: 120px 1fr 1fr 1fr 100px;
+}
+
+.stock-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stock-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.stock-input {
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s;
+  background: white;
+}
+
+.stock-input:focus {
+  border-color: #667eea;
+}
+
+select.stock-input {
+  cursor: pointer;
+}
+
+/* ======= Searchable Select ======= */
+
+.searchable-select {
+  position: relative;
+  width: 100%;
+}
+
+.searchable-select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: white;
+  font-size: 0.9rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.2s;
+  text-align: left;
+  min-height: 38px;
+}
+
+.searchable-select-trigger:hover {
+  border-color: #bbb;
+}
+
+.searchable-select-trigger:focus {
+  border-color: #667eea;
+  outline: none;
+}
+
+.searchable-select-value {
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.searchable-select-placeholder {
+  color: #999;
+  flex: 1;
+}
+
+.searchable-select-arrow {
+  font-size: 0.65rem;
+  color: #999;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.searchable-select-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 50;
+  overflow: hidden;
+}
+
+.searchable-select-search {
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  border-bottom: 1px solid #eee;
+  font-size: 0.9rem;
+  font-family: inherit;
+  outline: none;
+  background: #fafafa;
+}
+
+.searchable-select-search::placeholder {
+  color: #aaa;
+}
+
+.searchable-select-list {
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.searchable-select-option {
+  display: block;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  text-align: left;
+  font-size: 0.88rem;
+  font-family: inherit;
+  color: #333;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.searchable-select-option:hover {
+  background: #f0f0ff;
+}
+
+.searchable-select-option-active {
+  background: #667eea;
+  color: white;
+}
+
+.searchable-select-option-active:hover {
+  background: #5a6fd6;
+}
+
+.searchable-select-empty {
+  padding: 14px;
+  text-align: center;
+  color: #999;
+  font-size: 0.85rem;
+}
+
+.searchable-select-create {
+  color: #667eea;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.searchable-select-create:hover {
+  background: rgba(102, 126, 234, 0.15);
+}
+
+.stock-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  margin-top: 24px;
+}
+
+@media (max-width: 768px) {
+  .stock-row-fields,
+  .stock-row-fields:has(.stock-field-name) {
+    grid-template-columns: 1fr;
+  }
+
+  .stock-actions {
+    flex-direction: column;
+  }
+
+  .stock-actions .btn-primary,
+  .stock-actions .btn-secondary {
+    width: 100%;
+    text-align: center;
+  }
+}
+
 /* ======= Team Edit Styles ======= */
 
 .team-edit-input {

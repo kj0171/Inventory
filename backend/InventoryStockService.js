@@ -100,7 +100,7 @@ export class InventoryStockService {
         const totalQty = allStocks.reduce((sum, s) => sum + (s.quantity || 0), 0)
         await supabase
           .from('inventory_items')
-          .update({ quantity: totalQty })
+          .update({ unit: totalQty })
           .eq('id', inventoryItemId)
       }
     }
@@ -119,6 +119,49 @@ export class InventoryStockService {
     const categories = new Set(inventoryData.map(item => item.inventory_items?.item_category)).size
     const lowStock = inventoryData.filter(item => item.quantity < 10).length
     return { totalItems, totalStock, categories, lowStock }
+  }
+
+  async getItems() {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .select('id, name, item_category, item_group')
+      .order('name', { ascending: true })
+    return { data: data || [], error }
+  }
+
+  async createItem({ name, item_category, item_group }) {
+    const { data, error } = await supabase
+      .from('inventory_items')
+      .insert({ name, item_category, item_group, unit: 0, blocked_qty: 0 })
+      .select()
+      .single()
+    return { data, error }
+  }
+
+  async addStock(item_id, quantity) {
+    const { data, error } = await supabase
+      .from('inventory_stock')
+      .insert({ item_id, quantity, blocked_qty: 0 })
+      .select()
+      .single()
+
+    if (error) return { data: null, error }
+
+    // Recalculate parent inventory_items quantity
+    const { data: allStocks, error: sumError } = await supabase
+      .from('inventory_stock')
+      .select('quantity')
+      .eq('item_id', item_id)
+
+    if (!sumError && allStocks) {
+      const totalQty = allStocks.reduce((sum, s) => sum + (s.quantity || 0), 0)
+      await supabase
+        .from('inventory_items')
+        .update({ unit: totalQty })
+        .eq('id', item_id)
+    }
+
+    return { data, error: null }
   }
 }
 

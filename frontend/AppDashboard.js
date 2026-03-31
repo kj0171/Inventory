@@ -10,12 +10,14 @@ import SalesOrderDashboard from './sales/SalesOrderDashboard'
 import DispatchDashboard from './dispatch/DispatchDashboard'
 import TeamManagement from './team/TeamManagement'
 import CartDrawer from './inventory/CartDrawer'
+import AddStockForm from './inventory/AddStockForm'
 
 export default function AppDashboard() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
   const [activeSection, setActiveSection] = useState('inventory')
   const [orderSubTab, setOrderSubTab] = useState('sales')
+  const [inventorySubTab, setInventorySubTab] = useState('view')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [salesOrders, setSalesOrders] = useState([])
@@ -259,6 +261,26 @@ export default function AppDashboard() {
           </div>
         </div>
 
+        {/* Inventory sub-tabs */}
+        {activeSection === 'inventory' && (
+          <div className="sub-tabs">
+            <button
+              className={`sub-tab ${inventorySubTab === 'view' ? 'sub-tab-active' : ''}`}
+              onClick={() => setInventorySubTab('view')}
+            >
+              Stock View
+            </button>
+            {user.profile?.role === ROLES.ADMIN && (
+              <button
+                className={`sub-tab ${inventorySubTab === 'addstock' ? 'sub-tab-active' : ''}`}
+                onClick={() => setInventorySubTab('addstock')}
+              >
+                Add Stock
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Orders sub-tabs */}
         {activeSection === 'orders' && (
           <div className="sub-tabs">
@@ -277,12 +299,16 @@ export default function AppDashboard() {
           </div>
         )}
 
-        {activeSection === 'inventory' && (
+        {activeSection === 'inventory' && inventorySubTab === 'view' && (
           <InventoryDashboard
             key={inventoryRefreshKey}
             cartItems={cartItems}
             onAddToCart={handleAddToCart}
           />
+        )}
+
+        {activeSection === 'inventory' && inventorySubTab === 'addstock' && (
+          <AddStockForm onStockAdded={() => setInventoryRefreshKey(prev => prev + 1)} />
         )}
 
         {activeSection === 'orders' && orderSubTab === 'sales' && (
