@@ -66,12 +66,12 @@ function SearchableSelect({ options, value, onChange, placeholder }) {
   )
 }
 
-const EMPTY_ROW = { itemId: '', stockEntries: [] }
+const EMPTY_ROW = { itemId: '', stockEntries: [], sortAsc: false }
 
 export default function CreateSalesOrderForm({ onOrderCreated }) {
   const [customerName, setCustomerName] = useState('')
-  const [customerContact, setCustomerContact] = useState('')
-  const [notes, setNotes] = useState('')
+  const [customerPhone, setCustomerPhone] = useState('')
+  const [customerEmail, setCustomerEmail] = useState('')
   const [rows, setRows] = useState([{ ...EMPTY_ROW }])
   const [stockData, setStockData] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -111,13 +111,15 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
       if (i !== rowIndex) return row
       if (!itemId) return { ...EMPTY_ROW }
       const item = itemsWithStock.find(it => it.itemId === itemId)
-      const stockEntries = (item?.stocks || []).map(s => ({
-        stockId: s.id,
-        available: s.quantity - (s.blocked_qty || 0),
-        date: s.created_at,
-        quantity: '',
-      }))
-      return { itemId, stockEntries }
+      const stockEntries = (item?.stocks || [])
+        .map(s => ({
+          stockId: s.id,
+          available: s.quantity - (s.blocked_qty || 0),
+          date: s.created_at,
+          quantity: '',
+        }))
+        .sort((a, b) => new Date(b.date) - new Date(a.date))
+      return { itemId, stockEntries, sortAsc: false }
     }))
   }
 
@@ -129,6 +131,17 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
         return { ...se, quantity: value }
       })
       return { ...row, stockEntries }
+    }))
+  }
+
+  function toggleBatchSort(rowIndex) {
+    setRows(prev => prev.map((row, i) => {
+      if (i !== rowIndex) return row
+      const newAsc = !row.sortAsc
+      const sorted = [...row.stockEntries].sort((a, b) =>
+        newAsc ? new Date(a.date) - new Date(b.date) : new Date(b.date) - new Date(a.date)
+      )
+      return { ...row, stockEntries: sorted, sortAsc: newAsc }
     }))
   }
 
@@ -147,6 +160,11 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
 
     if (!customerName.trim()) {
       setErrorMsg('Enter a customer name')
+      return
+    }
+
+    if (!customerPhone.trim()) {
+      setErrorMsg('Enter a phone number')
       return
     }
 
@@ -182,16 +200,16 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     try {
       const success = await onOrderCreated({
         customer_name: customerName.trim(),
-        customer_contact: customerContact.trim(),
-        notes: notes.trim(),
+        customer_contact: customerPhone.trim(),
+        notes: customerEmail.trim(),
         items: allItems,
       })
 
       if (success) {
         setSuccessMsg('Sales order created successfully')
         setCustomerName('')
-        setCustomerContact('')
-        setNotes('')
+        setCustomerPhone('')
+        setCustomerEmail('')
         setRows([{ ...EMPTY_ROW }])
         fetchStock()
       }
@@ -226,23 +244,23 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
             />
           </div>
           <div className="stock-field">
-            <label className="stock-label">Customer Contact</label>
+            <label className="stock-label">Phone Number *</label>
             <input
               className="stock-input"
-              type="text"
-              placeholder="Phone or email"
-              value={customerContact}
-              onChange={e => setCustomerContact(e.target.value)}
+              type="tel"
+              placeholder="Enter phone number"
+              value={customerPhone}
+              onChange={e => setCustomerPhone(e.target.value)}
             />
           </div>
-          <div className="stock-field stock-field-notes">
-            <label className="stock-label">Notes</label>
-            <textarea
+          <div className="stock-field">
+            <label className="stock-label">Email</label>
+            <input
               className="stock-input"
-              placeholder="Order notes (optional)"
-              value={notes}
-              onChange={e => setNotes(e.target.value)}
-              rows={2}
+              type="email"
+              placeholder="Enter email (optional)"
+              value={customerEmail}
+              onChange={e => setCustomerEmail(e.target.value)}
             />
           </div>
         </div>
@@ -260,10 +278,13 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
             <div className="stock-field" style={{ marginBottom: row.stockEntries.length > 0 ? 12 : 0 }}>
               <label className="stock-label">Item</label>
               <SearchableSelect
-                options={itemsWithStock.map(it => ({
-                  value: it.itemId,
-                  label: `${it.name} — ${it.category} / ${it.group}`,
-                }))}
+                options={itemsWithStock.map(it => {
+                  const totalAvailable = it.stocks.reduce((sum, s) => sum + (s.quantity - (s.blocked_qty || 0)), 0)
+                  return {
+                    value: it.itemId,
+                    label: `${it.name} — ${it.category} / ${it.group} (${totalAvailable} available)`,
+                  }
+                })}
                 value={row.itemId}
                 onChange={val => selectItem(index, val)}
                 placeholder="Search and select item..."
@@ -273,7 +294,9 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
             {row.stockEntries.length > 0 && (
               <div className="sales-stock-batches">
                 <div className="sales-batch-header">
-                  <span>Stock Batch</span>
+                  <span className="sales-batch-sort" onClick={() => toggleBatchSort(index)}>
+                    Stock Batch {row.sortAsc ? '▲' : '▼'}
+                  </span>
                   <span>Available</span>
                   <span>Qty to Sell</span>
                 </div>
