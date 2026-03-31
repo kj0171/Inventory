@@ -32,11 +32,6 @@ export default function CartDrawer({ cartItems, isOpen, onToggle, onUpdateQty, o
 
   return (
     <>
-      {/* Floating cart button */}
-      <button className="cart-fab" onClick={onToggle}>
-        🛒 {cartItems.length > 0 && <span className="cart-fab-badge">{cartItems.length}</span>}
-      </button>
-
       {/* Drawer overlay */}
       {isOpen && <div className="cart-overlay" onClick={onToggle} />}
 

@@ -8,7 +8,7 @@ const NAV_ITEMS = [
   { id: 'team', label: 'Team', icon: '👥' },
 ]
 
-export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose, onSignOut }) {
+export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose, onSignOut, cartCount, onCartToggle }) {
   const { user } = useAuth()
   const role = user?.profile?.role || ''
   const visibleItems = NAV_ITEMS.filter(item => canAccessWithRole(role, item.id))
@@ -43,6 +43,18 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
               {!collapsed && <span className="sidebar-label">{item.label}</span>}
             </button>
           ))}
+
+          <button
+            className="sidebar-item"
+            onClick={onCartToggle}
+            title="Cart"
+          >
+            <span className="sidebar-icon sidebar-cart-icon">
+              🛒
+              {cartCount > 0 && <span className="sidebar-cart-badge">{cartCount}</span>}
+            </span>
+            {!collapsed && <span className="sidebar-label">Cart{cartCount > 0 ? ` (${cartCount})` : ''}</span>}
+          </button>
         </nav>
 
         <div className="sidebar-footer">

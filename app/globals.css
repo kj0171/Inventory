@@ -2639,6 +2639,29 @@ tr:last-child td {
   display: none;
 }
 
+/* ======= Sidebar Cart Badge ======= */
+
+.sidebar-cart-icon {
+  position: relative;
+}
+
+.sidebar-cart-badge {
+  position: absolute;
+  top: -6px;
+  right: -8px;
+  background: #e53935;
+  color: white;
+  font-size: 0.6rem;
+  font-weight: 700;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 /* ======= Main Content Area ======= */
 
 .main-content {
@@ -2967,6 +2990,83 @@ select.stock-input {
   cursor: pointer;
 }
 
+/* ======= Sales Stock Batches ======= */
+
+.sales-stock-batches {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 12px;
+  border: 1px solid #eee;
+}
+
+.sales-batch-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 100px;
+  gap: 12px;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.sales-batch-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 100px;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.sales-batch-row:last-child {
+  border-bottom: none;
+}
+
+.sales-batch-date {
+  font-size: 0.85rem;
+  color: #555;
+}
+
+.sales-batch-available {
+  font-size: 0.85rem;
+  color: #667eea;
+  font-weight: 600;
+}
+
+.sales-batch-qty {
+  width: 100%;
+  padding: 6px 8px;
+  text-align: center;
+  font-size: 0.85rem;
+}
+
+/* ======= Customer Info Section ======= */
+
+.customer-info-section {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.customer-info-section .stock-field-notes {
+  grid-column: 1 / -1;
+}
+
+.customer-info-section textarea.stock-input {
+  resize: vertical;
+  min-height: 60px;
+}
+
 /* ======= Searchable Select ======= */
 
 .searchable-select {
@@ -3107,6 +3207,28 @@ select.stock-input {
   .stock-row-fields,
   .stock-row-fields:has(.stock-field-name) {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .stock-row {
+    padding: 14px;
+  }
+
+  .add-stock-header {
+    margin-bottom: 16px;
+  }
+
+  .searchable-select-trigger {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+
+  .searchable-select-dropdown {
+    max-height: 250px;
+  }
+
+  .searchable-select-list {
+    max-height: 150px;
   }
 
   .stock-actions {
@@ -3117,6 +3239,29 @@ select.stock-input {
   .stock-actions .btn-secondary {
     width: 100%;
     text-align: center;
+  }
+
+  .customer-info-section {
+    grid-template-columns: 1fr;
+  }
+
+  .sales-batch-header,
+  .sales-batch-row {
+    grid-template-columns: 1fr 1fr 80px;
+    gap: 8px;
+  }
+
+  .sales-batch-header {
+    font-size: 0.65rem;
+  }
+
+  .sales-batch-date,
+  .sales-batch-available {
+    font-size: 0.8rem;
+  }
+
+  .sales-stock-batches {
+    padding: 10px;
   }
 }
 
