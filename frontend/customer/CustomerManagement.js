@@ -11,6 +11,7 @@ export default function CustomerManagement() {
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
   const [form, setForm] = useState({ name: '', mobile: '', email: '', gst_number: '' })
+  const [search, setSearch] = useState('')
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true)
@@ -93,15 +94,29 @@ export default function CustomerManagement() {
     setCustomers(prev => prev.filter(c => c.id !== id))
   }
 
+  const filtered = customers.filter(c => {
+    const q = search.toLowerCase()
+    return !q || c.name?.toLowerCase().includes(q) || c.mobile?.includes(q) || c.email?.toLowerCase().includes(q)
+  })
+
   return (
     <div className="team-management">
       <div className="team-header">
         <div>
           <h2 className="table-title">Customers</h2>
-          <span className="results-count">{customers.length} customer{customers.length !== 1 ? 's' : ''}</span>
+          <span className="results-count">{filtered.length} of {customers.length} customer{customers.length !== 1 ? 's' : ''}</span>
         </div>
         <button className="btn-primary" onClick={openAdd}>+ Add Customer</button>
       </div>
+
+      <input
+        className="stock-input"
+        type="text"
+        placeholder="Search by name, mobile or email..."
+        value={search}
+        onChange={e => setSearch(e.target.value)}
+        style={{ marginBottom: 16 }}
+      />
 
       {showForm && (
         <div className="modal-overlay" onClick={() => setShowForm(false)}>
@@ -187,7 +202,7 @@ export default function CustomerManagement() {
               </tr>
             </thead>
             <tbody>
-              {customers.map(cust => (
+              {filtered.map(cust => (
                 <tr key={cust.id}>
                   <td data-label="Name"><strong>{cust.name}</strong></td>
                   <td data-label="Mobile">{cust.mobile || '—'}</td>
@@ -195,7 +210,7 @@ export default function CustomerManagement() {
                   <td data-label="GST">{cust.gst_number || '—'}</td>
                   <td data-label="Actions">
                     <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn-secondary" style={{ padding: '6px 14px', fontSize: '0.8rem' }} onClick={() => openEdit(cust)}>Edit</button>
+                      <button className="btn-remove" onClick={() => openEdit(cust)}>Edit</button>
                       <button className="btn-remove" onClick={() => handleRemove(cust.id)}>Remove</button>
                     </div>
                   </td>
