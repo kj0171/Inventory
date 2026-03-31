@@ -12,6 +12,7 @@ import TeamManagement from './team/TeamManagement'
 import CartDrawer from './inventory/CartDrawer'
 import AddStockForm from './inventory/AddStockForm'
 import CreateSalesOrderForm from './sales/CreateSalesOrderForm'
+import CustomerManagement from './customer/CustomerManagement'
 
 export default function AppDashboard() {
   const router = useRouter()
@@ -295,11 +296,13 @@ export default function AppDashboard() {
               <h1 className="content-title">
                 {activeSection === 'inventory' && 'Inventory'}
                 {activeSection === 'orders' && 'Orders'}
+                {activeSection === 'customers' && 'Customers'}
                 {activeSection === 'team' && 'Team'}
               </h1>
               <p className="content-subtitle">
                 {activeSection === 'inventory' && 'Stock management and tracking'}
                 {activeSection === 'orders' && 'Sales orders and dispatch workflow'}
+                {activeSection === 'customers' && 'Manage your customers'}
                 {activeSection === 'team' && 'Manage employees and roles'}
               </p>
             </div>
@@ -385,6 +388,10 @@ export default function AppDashboard() {
             loading={loadingOrders}
             onDispatch={handleDispatch}
           />
+        )}
+
+        {activeSection === 'customers' && (
+          <CustomerManagement />
         )}
 
         {activeSection === 'team' && (
