@@ -291,9 +291,8 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
               <SearchableSelect
                 options={customers.map(c => ({
                   value: c.id,
-                  label: `${c.name} — ${c.mobile}`,
-                }))}
-                value={selectedCustomerId}
+                  label: c.name,
+                }))}                value={selectedCustomerId}
                 onChange={handleCustomerSelect}
                 placeholder="Search customer..."
               />
