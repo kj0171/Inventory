@@ -92,7 +92,7 @@ export class InventoryStockService {
         const totalQty = allStocks.reduce((sum, s) => sum + (s.quantity || 0), 0)
         await supabase
           .from(InventoryItemDao.TABLE)
-          .update({ [InventoryItemDao.COLUMNS.unit]: totalQty })
+          .update({ [InventoryItemDao.COLUMNS.quantity]: totalQty })
           .eq(InventoryItemDao.COLUMNS.id, inventoryItemId)
       }
     }
