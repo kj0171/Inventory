@@ -1,9 +1,10 @@
 import { supabase } from './supabaseClient'
+import { TABLES } from './constants'
 
 export class UserService {
   async getAll() {
     const { data, error } = await supabase
-      .from('profiles')
+      .from(TABLES.PROFILES)
       .select('*')
       .order('created_at', { ascending: false })
 
@@ -38,7 +39,7 @@ export class UserService {
 
   async updateUser(userId, updates) {
     const { data, error } = await supabase
-      .from('profiles')
+      .from(TABLES.PROFILES)
       .update(updates)
       .eq('id', userId)
       .select()

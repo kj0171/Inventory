@@ -1,30 +1,43 @@
 import { supabase } from './supabaseClient'
+import { TABLES } from './constants'
+import { InventoryItemDto } from './dto/inventoryItemDto'
+
+function mapOrderFromDb(order) {
+  if (!order) return order
+  return {
+    ...order,
+    sales_order_items: (order.sales_order_items || []).map(li => {
+      const { stock_id, ...rest } = li
+      return { ...rest, inventory_stock_id: stock_id, inventory_items: InventoryItemDto.fromDao(li.inventory_items) }
+    })
+  }
+}
 
 const ORDER_SELECT = `
   *,
   sales_order_items (
     id,
-    inventory_stock_id,
+    stock_id,
     item_id,
     quantity,
-    inventory_items ( name, item_category, item_group )
+    inventory_items ( name, category, brand )
   )
 `
 
 export class SalesOrderService {
   async getAll() {
     const { data, error } = await supabase
-      .from('sales_orders')
+      .from(TABLES.SALES_ORDERS)
       .select(ORDER_SELECT)
       .order('created_at', { ascending: false })
 
-    return { data: data || [], error }
+    return { data: (data || []).map(mapOrderFromDb), error }
   }
 
   async create(order) {
     // 1. Insert order header
     const { data: header, error: headerError } = await supabase
-      .from('sales_orders')
+      .from(TABLES.SALES_ORDERS)
       .insert({
         customer_name: order.customer_name,
         customer_contact: order.customer_contact || null,
@@ -39,36 +52,36 @@ export class SalesOrderService {
     // 2. Insert line items
     const lineItems = order.items.map(item => ({
       sales_order_id: header.id,
-      inventory_stock_id: item.inventory_stock_id,
+      stock_id: item.inventory_stock_id,
       item_id: item.item_id,
       quantity: item.quantity,
     }))
 
     const { error: itemsError } = await supabase
-      .from('sales_order_items')
+      .from(TABLES.SALES_ORDER_ITEMS)
       .insert(lineItems)
 
     if (itemsError) return { data: null, error: itemsError }
 
     // 3. Re-fetch with joins
     const { data, error } = await supabase
-      .from('sales_orders')
+      .from(TABLES.SALES_ORDERS)
       .select(ORDER_SELECT)
       .eq('id', header.id)
       .single()
 
-    return { data, error }
+    return { data: mapOrderFromDb(data), error }
   }
 
   async updateStatus(id, status) {
     const { data, error } = await supabase
-      .from('sales_orders')
+      .from(TABLES.SALES_ORDERS)
       .update({ status, updated_at: new Date().toISOString() })
       .eq('id', id)
       .select(ORDER_SELECT)
       .single()
 
-    return { data, error }
+    return { data: mapOrderFromDb(data), error }
   }
 }
 

@@ -1,4 +1,5 @@
 import { supabase } from './supabaseClient'
+import { TABLES } from './constants'
 
 export class AuthService {
   async signIn(email, password) {
@@ -24,7 +25,7 @@ export class AuthService {
       // Fetch profile — never block session restore
       let profile = null
       const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
+        .from(TABLES.PROFILES)
         .select('*')
         .eq('id', session.user.id)
         .maybeSingle()
@@ -44,7 +45,7 @@ export class AuthService {
   async fetchProfile(userId) {
     try {
       const { data } = await supabase
-        .from('profiles')
+        .from(TABLES.PROFILES)
         .select('*')
         .eq('id', userId)
         .maybeSingle()
