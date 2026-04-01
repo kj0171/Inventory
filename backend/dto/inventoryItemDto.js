@@ -13,7 +13,8 @@ export class InventoryItemDto {
    * @param {number}       props.blocked_qty
    * @param {string}       props.unit
    */
-  constructor(props = {}) {
+  constructor(props = {}) 
+  {
     this.id = props.id ?? null
     this.name = props.name ?? ''
     this.item_category = props.item_category ?? ''
