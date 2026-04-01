@@ -110,7 +110,8 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     }
   }
 
-  async function handleCreateNewCustomer() {
+  async function handleCreateNewCustomer(e) {
+    e.preventDefault()
     if (!newCustForm.name.trim() || !newCustForm.mobile.trim()) {
       setNewCustError('Name and mobile are required')
       return
@@ -322,7 +323,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
                 <h3>New Customer</h3>
                 <button type="button" className="modal-close-btn" onClick={() => setShowNewCustomer(false)}>✕</button>
               </div>
-              <div className="team-form">
+              <form className="team-form" onSubmit={handleCreateNewCustomer}>
                 {newCustError && <div className="signin-error">{newCustError}</div>}
                 <div className="signin-field">
                   <label className="signin-label">Name *</label>
@@ -346,11 +347,11 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
                 </div>
                 <div className="team-form-actions">
                   <button type="button" className="btn-secondary" onClick={() => setShowNewCustomer(false)}>Cancel</button>
-                  <button type="button" className="btn-primary" disabled={newCustSubmitting} onClick={handleCreateNewCustomer}>
+                  <button type="submit" className="btn-primary" disabled={newCustSubmitting}>
                     {newCustSubmitting ? 'Creating...' : 'Add Customer'}
                   </button>
                 </div>
-              </div>
+              </form>
             </div>
           </div>
         )}
