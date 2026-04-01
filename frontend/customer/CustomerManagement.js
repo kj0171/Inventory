@@ -2,6 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { customerService } from '../../backend'
+import {
+  Table, Button, Modal, TextInput, Group, Stack,
+  Title, Text, Card, Badge, Loader, Center, Alert, SimpleGrid, Divider
+} from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 
 export default function CustomerManagement() {
   const [customers, setCustomers] = useState([])
@@ -12,6 +17,7 @@ export default function CustomerManagement() {
   const [formError, setFormError] = useState('')
   const [form, setForm] = useState({ name: '', mobile: '', email: '', gst_number: '' })
   const [search, setSearch] = useState('')
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true)
@@ -100,126 +106,146 @@ export default function CustomerManagement() {
   })
 
   return (
-    <div className="team-management">
-      <div className="team-header">
+    <Stack gap="lg">
+      <Group justify="space-between" align="center">
         <div>
-          <h2 className="table-title">Customers</h2>
-          <span className="results-count">{filtered.length} of {customers.length} customer{customers.length !== 1 ? 's' : ''}</span>
+          <Title order={3}>Customers</Title>
+          <Text size="sm" c="dimmed">{filtered.length} of {customers.length} customer{customers.length !== 1 ? 's' : ''}</Text>
         </div>
-        <button className="btn-primary" onClick={openAdd}>+ Add Customer</button>
-      </div>
+        <Button onClick={openAdd}>+ Add Customer</Button>
+      </Group>
 
-      <input
-        className="stock-input"
-        type="text"
+      <TextInput
         placeholder="Search by name, mobile or email..."
         value={search}
         onChange={e => setSearch(e.target.value)}
-        style={{ marginBottom: 16 }}
       />
 
-      {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="team-modal" onClick={e => e.stopPropagation()}>
-            <div className="team-modal-header">
-              <h3>{editingCustomer ? 'Edit Customer' : 'Add New Customer'}</h3>
-              <button className="modal-close-btn" onClick={() => setShowForm(false)}>✕</button>
-            </div>
-            <form className="team-form" onSubmit={handleSubmit}>
-              {formError && <div className="signin-error">{formError}</div>}
-              <div className="signin-field">
-                <label className="signin-label" htmlFor="cust-name">Name *</label>
-                <input
-                  id="cust-name"
-                  className="signin-input"
-                  type="text"
-                  placeholder="Customer name"
-                  value={form.name}
-                  onChange={e => handleChange('name', e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="signin-field">
-                <label className="signin-label" htmlFor="cust-mobile">Mobile *</label>
-                <input
-                  id="cust-mobile"
-                  className="signin-input"
-                  type="tel"
-                  placeholder="Mobile number"
-                  value={form.mobile}
-                  onChange={e => handleChange('mobile', e.target.value)}
-                />
-              </div>
-              <div className="signin-field">
-                <label className="signin-label" htmlFor="cust-email">Email</label>
-                <input
-                  id="cust-email"
-                  className="signin-input"
-                  type="email"
-                  placeholder="Email (optional)"
-                  value={form.email}
-                  onChange={e => handleChange('email', e.target.value)}
-                />
-              </div>
-              <div className="signin-field">
-                <label className="signin-label" htmlFor="cust-gst">GST Number</label>
-                <input
-                  id="cust-gst"
-                  className="signin-input"
-                  type="text"
-                  placeholder="GST number (optional)"
-                  value={form.gst_number}
-                  onChange={e => handleChange('gst_number', e.target.value)}
-                />
-              </div>
-              <div className="team-form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? 'Saving...' : editingCustomer ? 'Update' : 'Add Customer'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* Add/Edit Customer Modal */}
+      <Modal
+        opened={showForm}
+        onClose={() => setShowForm(false)}
+        title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
+        centered
+        size="md"
+      >
+        <form onSubmit={handleSubmit}>
+          <Stack gap="md">
+            {formError && <Alert color="red" variant="light">{formError}</Alert>}
+            <TextInput
+              label="Name"
+              placeholder="Customer name"
+              value={form.name}
+              onChange={e => handleChange('name', e.target.value)}
+              required
+              autoFocus
+            />
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              <TextInput
+                label="Mobile"
+                placeholder="Mobile number"
+                type="tel"
+                value={form.mobile}
+                onChange={e => handleChange('mobile', e.target.value)}
+                required
+              />
+              <TextInput
+                label="Email"
+                placeholder="Email (optional)"
+                type="email"
+                value={form.email}
+                onChange={e => handleChange('email', e.target.value)}
+              />
+            </SimpleGrid>
+            <TextInput
+              label="GST Number"
+              placeholder="GST number (optional)"
+              value={form.gst_number}
+              onChange={e => handleChange('gst_number', e.target.value)}
+            />
+            <Divider />
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button type="submit" loading={submitting}>
+                {editingCustomer ? 'Update' : 'Add Customer'}
+              </Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
 
+      {/* Customer List */}
       {loading ? (
-        <div className="team-empty"><p>Loading...</p></div>
+        <Center py="xl"><Loader /></Center>
       ) : customers.length === 0 ? (
-        <div className="team-empty">
-          <p>No customers added yet. Click &quot;Add Customer&quot; to get started.</p>
-        </div>
+        <Card withBorder p="xl" ta="center">
+          <Text c="dimmed">No customers added yet. Click &quot;Add Customer&quot; to get started.</Text>
+        </Card>
+      ) : isMobile ? (
+        /* Mobile: Card layout */
+        <Stack gap="sm">
+          {filtered.map(cust => (
+            <Card key={cust.id} withBorder radius="md" padding="md">
+              <Group justify="space-between" align="flex-start" mb={4}>
+                <Text fw={600} size="sm">{cust.name}</Text>
+              </Group>
+              <Stack gap={4}>
+                <Group gap="xs">
+                  <Text size="xs" c="dimmed" w={55}>Mobile</Text>
+                  <Text size="xs">{cust.mobile || '—'}</Text>
+                </Group>
+                {cust.email && (
+                  <Group gap="xs">
+                    <Text size="xs" c="dimmed" w={55}>Email</Text>
+                    <Text size="xs">{cust.email}</Text>
+                  </Group>
+                )}
+                {cust.gst_number && (
+                  <Group gap="xs">
+                    <Text size="xs" c="dimmed" w={55}>GST</Text>
+                    <Text size="xs">{cust.gst_number}</Text>
+                  </Group>
+                )}
+              </Stack>
+              <Group gap="xs" mt="xs">
+                <Button size="compact-xs" variant="subtle" onClick={() => openEdit(cust)}>Edit</Button>
+                <Button size="compact-xs" color="red" variant="subtle" onClick={() => handleRemove(cust.id)}>Remove</Button>
+              </Group>
+            </Card>
+          ))}
+        </Stack>
       ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Mobile</th>
-                <th>Email</th>
-                <th>GST Number</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
+        /* Desktop: Table layout */
+        <Card withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
+          <Table striped highlightOnHover verticalSpacing="sm" horizontalSpacing="md">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Mobile</Table.Th>
+                <Table.Th>Email</Table.Th>
+                <Table.Th>GST Number</Table.Th>
+                <Table.Th>Actions</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
               {filtered.map(cust => (
-                <tr key={cust.id}>
-                  <td data-label="Name"><strong>{cust.name}</strong></td>
-                  <td data-label="Mobile">{cust.mobile || '—'}</td>
-                  <td data-label="Email">{cust.email || '—'}</td>
-                  <td data-label="GST">{cust.gst_number || '—'}</td>
-                  <td data-label="Actions">
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn-remove" onClick={() => openEdit(cust)}>Edit</button>
-                      <button className="btn-remove" onClick={() => handleRemove(cust.id)}>Remove</button>
-                    </div>
-                  </td>
-                </tr>
+                <Table.Tr key={cust.id}>
+                  <Table.Td fw={600}>{cust.name}</Table.Td>
+                  <Table.Td>{cust.mobile || '—'}</Table.Td>
+                  <Table.Td>{cust.email || '—'}</Table.Td>
+                  <Table.Td>{cust.gst_number || '—'}</Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      <Button size="compact-xs" variant="subtle" onClick={() => openEdit(cust)}>Edit</Button>
+                      <Button size="compact-xs" color="red" variant="subtle" onClick={() => handleRemove(cust.id)}>Remove</Button>
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Table.Tbody>
+          </Table>
+        </Card>
       )}
-    </div>
+    </Stack>
   )
 }

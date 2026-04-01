@@ -3,12 +3,23 @@
 import { useState, useEffect, useCallback } from 'react'
 import { ROLES, useAuth } from '../shared/auth'
 import { userService } from '../../backend'
+import {
+  Table, Button, Modal, TextInput, PasswordInput, Select, Badge, Group, Stack,
+  Title, Text, Card, ActionIcon, Loader, Center, Alert, SimpleGrid, Divider, Box
+} from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 
 const ROLE_OPTIONS = [
   { value: ROLES.SALESPERSON, label: 'Sales' },
   { value: ROLES.DISPATCHER, label: 'Dispatch' },
   { value: ROLES.ADMIN, label: 'Admin' },
 ]
+
+const ROLE_COLORS = {
+  [ROLES.ADMIN]: 'red',
+  [ROLES.SALESPERSON]: 'blue',
+  [ROLES.DISPATCHER]: 'orange',
+}
 
 export default function TeamManagement() {
   const { user } = useAuth()
@@ -72,141 +83,136 @@ export default function TeamManagement() {
     setEmployees(prev => prev.filter(emp => emp.id !== id))
   }
 
-  function getRoleBadgeClass(role) {
-    if (role === ROLES.ADMIN) return 'role-badge role-admin'
-    if (role === ROLES.SALESPERSON) return 'role-badge role-sales'
-    if (role === ROLES.DISPATCHER) return 'role-badge role-dispatch'
-    return 'role-badge'
-  }
+  const isAdmin = user?.profile?.role === ROLES.ADMIN
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
   return (
-    <div className="team-management">
-      <div className="team-header">
+    <Stack gap="lg">
+      <Group justify="space-between" align="center">
         <div>
-          <h2 className="table-title">Team Members</h2>
-          <span className="results-count">{employees.length} employee{employees.length !== 1 ? 's' : ''}</span>
+          <Title order={3}>Team Members</Title>
+          <Text size="sm" c="dimmed">{employees.length} employee{employees.length !== 1 ? 's' : ''}</Text>
         </div>
-{user?.profile?.role === ROLES.ADMIN && (
-        <button className="btn-primary" onClick={() => setShowForm(true)}>
-          + Add Employee
-        </button>
+        {isAdmin && (
+          <Button onClick={() => setShowForm(true)}>+ Add Employee</Button>
         )}
-      </div>
+      </Group>
 
       {/* Add Employee Modal */}
-      {showForm && (
-        <div className="modal-overlay" onClick={() => setShowForm(false)}>
-          <div className="team-modal" onClick={e => e.stopPropagation()}>
-            <div className="team-modal-header">
-              <h3>Add New Employee</h3>
-              <button className="modal-close-btn" onClick={() => setShowForm(false)}>✕</button>
-            </div>
-            <form className="team-form" onSubmit={handleAdd}>
-              {formError && <div className="signin-error">{formError}</div>}
-              <div className="signin-field">
-                <label className="signin-label" htmlFor="emp-name">Full Name</label>
-                <input
-                  id="emp-name"
-                  className="signin-input"
-                  type="text"
-                  placeholder="Enter full name"
-                  value={form.full_name}
-                  onChange={e => handleChange('full_name', e.target.value)}
-                  autoFocus
-                />
-              </div>
-              <div className="signin-field">
-                <label className="signin-label" htmlFor="emp-email">Email</label>
-                <input
-                  id="emp-email"
-                  className="signin-input"
-                  type="email"
-                  placeholder="Enter email"
-                  value={form.email}
-                  onChange={e => handleChange('email', e.target.value)}
-                />
-              </div>
-              <div className="signin-field">
-                <label className="signin-label" htmlFor="emp-password">Password</label>
-                <input
-                  id="emp-password"
-                  className="signin-input"
-                  type="password"
-                  placeholder="Set initial password"
-                  value={form.password}
-                  onChange={e => handleChange('password', e.target.value)}
-                />
-              </div>
-              <div className="signin-field">
-                <label className="signin-label" htmlFor="emp-phone">Phone</label>
-                <input
-                  id="emp-phone"
-                  className="signin-input"
-                  type="tel"
-                  placeholder="Enter phone number (optional)"
-                  value={form.phone}
-                  onChange={e => handleChange('phone', e.target.value)}
-                />
-              </div>
-              <div className="signin-field">
-                <label className="signin-label" htmlFor="emp-role">Role</label>
-                <select
-                  id="emp-role"
-                  className="signin-input"
-                  value={form.role}
-                  onChange={e => handleChange('role', e.target.value)}
-                >
-                  {ROLE_OPTIONS.map(opt => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="team-form-actions">
-                <button type="button" className="btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
-                <button type="submit" className="btn-primary" disabled={submitting}>
-                  {submitting ? 'Adding...' : 'Add Employee'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      <Modal opened={showForm} onClose={() => setShowForm(false)} title="Add New Employee" centered size="md">
+        <form onSubmit={handleAdd}>
+          <Stack gap="md">
+            {formError && <Alert color="red" variant="light">{formError}</Alert>}
+            <TextInput
+              label="Full Name"
+              placeholder="Enter full name"
+              value={form.full_name}
+              onChange={e => handleChange('full_name', e.target.value)}
+              required
+              autoFocus
+            />
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              <TextInput
+                label="Email"
+                placeholder="Enter email"
+                type="email"
+                value={form.email}
+                onChange={e => handleChange('email', e.target.value)}
+                required
+              />
+              <PasswordInput
+                label="Password"
+                placeholder="Set initial password"
+                value={form.password}
+                onChange={e => handleChange('password', e.target.value)}
+                required
+              />
+            </SimpleGrid>
+            <SimpleGrid cols={{ base: 1, sm: 2 }}>
+              <TextInput
+                label="Phone"
+                placeholder="Phone number (optional)"
+                type="tel"
+                value={form.phone}
+                onChange={e => handleChange('phone', e.target.value)}
+              />
+              <Select
+                label="Role"
+                data={ROLE_OPTIONS}
+                value={form.role}
+                onChange={val => handleChange('role', val)}
+                allowDeselect={false}
+              />
+            </SimpleGrid>
+            <Divider />
+            <Group justify="flex-end">
+              <Button variant="default" onClick={() => setShowForm(false)}>Cancel</Button>
+              <Button type="submit" loading={submitting}>Add Employee</Button>
+            </Group>
+          </Stack>
+        </form>
+      </Modal>
 
       {/* Employee List */}
       {loading ? (
-        <div className="team-empty"><p>Loading...</p></div>
+        <Center py="xl"><Loader /></Center>
       ) : employees.length === 0 ? (
-        <div className="team-empty">
-          <p>No employees added yet. Click "Add Employee" to get started.</p>
-        </div>
+        <Card withBorder p="xl" ta="center">
+          <Text c="dimmed">No employees added yet. Click &quot;Add Employee&quot; to get started.</Text>
+        </Card>
+      ) : isMobile ? (
+        /* Mobile: Card layout */
+        <Stack gap="sm">
+          {employees.map(emp => (
+            <Card key={emp.id} withBorder radius="md" padding="md">
+              <Group justify="space-between" align="flex-start" mb="xs">
+                <div>
+                  <Text fw={600} size="sm">{emp.full_name}</Text>
+                  <Text size="xs" c="dimmed">{emp.phone || 'No phone'}</Text>
+                </div>
+                <Badge color={ROLE_COLORS[emp.role] || 'gray'} variant="light" size="sm">{emp.role}</Badge>
+              </Group>
+              {isAdmin && (
+                <Button size="compact-xs" color="red" variant="subtle" mt="xs" onClick={() => handleRemove(emp.id)}>
+                  Remove
+                </Button>
+              )}
+            </Card>
+          ))}
+        </Stack>
       ) : (
-        <div className="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Phone</th>
-                <th>Role</th>
-                {user?.profile?.role === ROLES.ADMIN && <th>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
+        /* Desktop: Table layout */
+        <Card withBorder p={0} radius="md" style={{ overflow: 'hidden' }}>
+          <Table striped highlightOnHover verticalSpacing="sm" horizontalSpacing="md">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Phone</Table.Th>
+                <Table.Th>Role</Table.Th>
+                {isAdmin && <Table.Th>Actions</Table.Th>}
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
               {employees.map(emp => (
-                <tr key={emp.id}>
-                  <td data-label="Name"><strong>{emp.full_name}</strong></td>
-                  <td data-label="Phone">{emp.phone || '—'}</td>
-                  <td data-label="Role"><span className={getRoleBadgeClass(emp.role)}>{emp.role}</span></td>
-                  {user?.profile?.role === ROLES.ADMIN && (
-                  <td data-label="Actions">
-                    <button className="btn-remove" onClick={() => handleRemove(emp.id)}>Remove</button>
-                  </td>
+                <Table.Tr key={emp.id}>
+                  <Table.Td fw={600}>{emp.full_name}</Table.Td>
+                  <Table.Td>{emp.phone || '—'}</Table.Td>
+                  <Table.Td>
+                    <Badge color={ROLE_COLORS[emp.role] || 'gray'} variant="light">{emp.role}</Badge>
+                  </Table.Td>
+                  {isAdmin && (
+                    <Table.Td>
+                      <Button size="compact-xs" color="red" variant="subtle" onClick={() => handleRemove(emp.id)}>
+                        Remove
+                      </Button>
+                    </Table.Td>
                   )}
-                </tr>
+                </Table.Tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Table.Tbody>
+          </Table>
+        </Card>
       )}
-    </div>
+    </Stack>
   )
 }

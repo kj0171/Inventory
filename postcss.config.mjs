@@ -1,6 +1,6 @@
 const config = {
   plugins: {
-    // "@tailwindcss/postcss": {}, // Temporarily disabled due to native binding issues
+    "@tailwindcss/postcss": {},
   },
 };
 

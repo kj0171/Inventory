@@ -1,8 +1,18 @@
-/* @import "tailwindcss"; Temporarily disabled due to native binding issues */
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
 
 :root {
   --background: #ffffff;
   --foreground: #171717;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
 }
 
 /* @theme inline {
@@ -12,20 +22,23 @@
   --font-mono: var(--font-geist-mono);
 } Temporarily disabled */
 
-@media (prefers-color-scheme: dark) {
+/* Dark mode disabled — business dashboard uses light theme only */
+/* @media (prefers-color-scheme: dark) {
   :root {
     --background: #0a0a0a;
     --foreground: #ededed;
   }
-}
+} */
 
 body {
   background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  color: var(--foreground);
+  color: #171717;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
   padding: 0;
   min-height: 100vh;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Professional Dashboard Styles */
@@ -918,6 +931,8 @@ tr:last-child td {
 @media (max-width: 768px) {
   .dashboard-container {
     padding: 15px;
+    max-width: 100%;
+    overflow-x: hidden;
   }
 
   .dashboard-header {
@@ -2459,6 +2474,8 @@ tr:last-child td {
 .app-layout {
   display: flex;
   min-height: 100vh;
+  overflow-x: hidden;
+  width: 100%;
 }
 
 .sidebar {
@@ -2762,44 +2779,7 @@ tr:last-child td {
   color: white;
 }
 
-/* ======= Team Management ======= */
-
-.team-management {
-  margin-top: 0;
-  overflow-x: hidden;
-}
-
-.team-management .table-container table th,
-.team-management .table-container table td {
-  padding: 14px 10px;
-  font-size: 0.85rem;
-  word-break: break-word;
-  overflow-wrap: break-word;
-}
-
-.team-management .table-container table {
-  width: 100%;
-}
-
-.team-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 24px;
-  flex-wrap: wrap;
-  gap: 16px;
-}
-
-.team-empty {
-  background: white;
-  border-radius: 16px;
-  padding: 60px 30px;
-  text-align: center;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  color: #888;
-  font-size: 1rem;
-}
+/* ======= Team/Customer Modal (shared by sales form) ======= */
 
 .team-modal {
   background: white;
@@ -2851,31 +2831,6 @@ tr:last-child td {
   gap: 12px;
   justify-content: flex-end;
   margin-top: 24px;
-}
-
-/* Role badges */
-.role-badge {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  text-transform: capitalize;
-}
-
-.role-admin {
-  background: #e8eaf6;
-  color: #3949ab;
-}
-
-.role-sales {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-.role-dispatch {
-  background: #fff3e0;
-  color: #e65100;
 }
 
 .btn-remove {
@@ -3457,6 +3412,7 @@ select.stock-input {
     margin-left: 0;
     max-width: 100%;
     padding: 15px;
+    overflow-x: hidden;
   }
 
   .content-header {
@@ -3490,71 +3446,347 @@ select.stock-input {
     max-width: calc(100% - 30px);
   }
 
-  /* Team table → card layout on mobile */
-  .team-management {
+}
+
+/* ======================================================================
+   COMPREHENSIVE RESPONSIVE OVERRIDES
+   All screen-size adaptations consolidated here for maintainability.
+   ====================================================================== */
+
+/* ---------- Small phones (≤ 400px) ---------- */
+@media (max-width: 400px) {
+  .content-header {
+    padding: 14px;
+    border-radius: 10px;
+    margin-bottom: 16px;
+  }
+
+  .content-title {
+    font-size: 1.2rem;
+    letter-spacing: 0;
+  }
+
+  .content-subtitle {
+    font-size: 0.75rem;
+    margin-top: 2px;
+  }
+
+  .mobile-menu-btn {
+    font-size: 1.2rem;
+    padding: 2px 6px;
+  }
+
+  .sub-tabs {
+    gap: 4px;
+    padding: 3px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+  }
+
+  .sub-tab {
+    padding: 8px 6px;
+    font-size: 0.75rem;
+  }
+
+  .stat-card {
+    padding: 14px 10px;
+  }
+
+  .stat-number {
+    font-size: 1.4rem;
+  }
+
+  .stat-label {
+    font-size: 0.7rem;
+  }
+
+  .filters-container {
+    padding: 12px 10px;
+    border-radius: 10px;
+  }
+
+  .filters-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .filter-input,
+  .filter-select {
+    padding: 8px 10px;
+    font-size: 0.85rem;
+  }
+
+  .btn-primary,
+  .btn-secondary {
+    padding: 10px 12px;
+    font-size: 0.8rem;
+  }
+
+  .table-header {
+    padding: 14px 10px;
+  }
+
+  .table-title {
+    font-size: 1rem;
+  }
+
+  .toggle-all-btn {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+  }
+
+  .category-header-mobile {
+    padding: 10px 12px;
+  }
+
+  .category-title-mobile {
+    font-size: 0.9rem;
+  }
+
+  .inventory-card {
+    padding: 14px;
+    margin-bottom: 10px;
+    border-radius: 10px;
+  }
+
+  .card-title {
+    font-size: 0.9rem;
+  }
+
+  .card-detail-label {
+    font-size: 0.7rem;
+  }
+
+  .card-detail-value {
+    font-size: 0.85rem;
+  }
+
+  .stock-row {
+    padding: 12px;
+  }
+
+  .stock-label {
+    font-size: 0.7rem;
+  }
+
+  .stock-input {
+    padding: 7px 10px;
+    font-size: 0.85rem;
+  }
+
+  .team-modal {
     max-width: 100%;
+    margin: 0 10px;
+    border-radius: 12px;
+  }
+
+  .team-form {
+    padding: 16px;
+  }
+
+  .signin-header {
+    padding: 24px 16px 20px;
+  }
+
+  .signin-title {
+    font-size: 1.3rem;
+  }
+
+  .signin-form {
+    padding: 20px 16px;
+  }
+
+  .modal-overlay {
+    padding: 10px;
+  }
+
+  .modal-content {
+    border-radius: 12px;
+  }
+
+  .cart-drawer {
+    width: 100vw;
+    max-width: 100vw;
+  }
+}
+
+/* ---------- Phones (≤ 768px) — touch & scroll fixes ---------- */
+@media (max-width: 768px) {
+  /* Kill all horizontal overflow at every level */
+  html, body, .app-layout, .main-content, .main-content-expanded, .dashboard-container {
+    max-width: 100vw;
     overflow-x: hidden;
   }
 
-  .team-management .table-container {
-    background: transparent;
-    box-shadow: none;
-    border: none;
-    overflow: visible;
+  /* Smooth momentum scrolling everywhere */
+  .main-content, .main-content-expanded {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+  }
+
+  /* Sub-tabs: horizontal scroll when too many tabs */
+  .sub-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    scrollbar-width: none;
+  }
+  .sub-tabs::-webkit-scrollbar { display: none; }
+
+  .sub-tab {
+    flex-shrink: 0;
+  }
+
+  /* Prevent inputs from causing zoom on iOS (16px minimum) */
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+
+  /* Cards & badges: prevent wrapping overflow */
+  .quantity-badge,
+  .category-badge,
+  .status-badge {
+    white-space: nowrap;
     max-width: 100%;
-  }
-
-  .team-management .table-container table thead {
-    display: none;
-  }
-
-  .team-management .table-container table {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    min-width: 0;
-    table-layout: fixed;
-  }
-
-  .team-management .table-container table tbody {
-    display: block;
-    width: 100%;
-  }
-
-  .team-management .table-container table tr {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    background: white;
-    border-radius: 12px;
-    padding: 16px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-    border: 1px solid rgba(0, 0, 0, 0.05);
-    box-sizing: border-box;
     overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .team-management .table-container table td {
-    display: block;
-    width: 100%;
+  /* Modals: always respect screen bounds */
+  .modal-overlay {
+    padding: 12px;
+    align-items: flex-start;
+    padding-top: 5vh;
+  }
+
+  .modal-content {
+    max-height: 85vh;
     max-width: 100%;
-    min-width: 0;
-    padding: 4px 0;
-    border: none;
-    text-align: left;
+  }
+
+  .team-modal {
+    max-width: 100%;
+    max-height: 85vh;
+    overflow-y: auto;
+  }
+
+  /* Cart drawer: full width on mobile */
+  .cart-drawer {
+    width: 100vw;
+    max-width: 100vw;
+    right: -100vw;
+  }
+  .cart-drawer.open {
+    right: 0;
+  }
+
+  .cart-drawer-header h3 {
+    font-size: 0.95rem;
+  }
+
+  .cart-drawer-body {
+    padding: 12px 14px;
+  }
+
+  /* Content header: compact on mobile */
+  .content-header {
+    padding: 16px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+    gap: 8px;
+  }
+
+  .content-title {
+    font-size: 1.4rem;
+    letter-spacing: 0.3px;
+  }
+
+  /* Customer info section: stack on mobile */
+  .customer-info-section {
+    grid-template-columns: 1fr;
+    gap: 12px;
+    padding: 14px;
+  }
+
+  /* Sales batch grid: tighter on mobile */
+  .sales-stock-batches {
+    padding: 10px;
+    border-radius: 6px;
+  }
+
+  /* Stock form row: stack fields */
+  .stock-row-fields,
+  .stock-row-fields:has(.stock-field-name) {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  /* Order tables: make cards on mobile */
+  .order-row td {
     word-break: break-word;
     overflow-wrap: break-word;
-    box-sizing: border-box;
   }
 
-  .team-management .table-container table td::before {
-    content: attr(data-label);
-    font-weight: 600;
-    font-size: 0.75rem;
-    color: #888;
-    text-transform: uppercase;
-    display: block;
-    margin-bottom: 2px;
+  /* Filters: full-width buttons */
+  .filter-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .filter-actions .btn-primary,
+  .filter-actions .btn-secondary {
+    flex: 1;
+    min-width: 0;
+    text-align: center;
+  }
+
+  /* Prevent touch delay */
+  a, button, .sidebar-item, .category-header-mobile, .item-group-header-mobile {
+    touch-action: manipulation;
+  }
+
+  /* Smoother collapse animations on mobile (reduce paint cost) */
+  .category-content-mobile,
+  .item-group-content-mobile {
+    will-change: max-height, opacity;
+  }
+
+  /* Customer select row: stack vertically */
+  .customer-select-row {
+    flex-direction: column;
+  }
+
+  .customer-select-row .btn-sm {
+    width: 100%;
+    height: auto;
+    padding: 10px;
+  }
+
+  /* Ensure text never overflows container */
+  .item-name,
+  .order-id,
+  .customer-info,
+  .sidebar-brand-text,
+  .searchable-select-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 100%;
+  }
+
+  /* Sales/dispatch order detail lines */
+  .line-item-detail {
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .line-item-name {
+    word-break: break-word;
+  }
+
+  /* Sign-in page */
+  .signin-wrapper {
+    padding: 12px;
+    align-items: flex-start;
+    padding-top: 8vh;
   }
 }
