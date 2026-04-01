@@ -26,7 +26,7 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
 
       <aside className={`sidebar ${collapsed ? 'sidebar-collapsed' : ''} ${mobileOpen ? 'sidebar-mobile-open' : ''}`}>
         <div className="sidebar-brand">
-          {!collapsed && <span className="sidebar-brand-text">Firm Name</span>}
+          {!collapsed && <span className="sidebar-brand-text">{process.env.NEXT_PUBLIC_FIRM_NAME || 'Firm Name'}</span>}
           <button className="sidebar-toggle" onClick={onToggleCollapse} title={collapsed ? 'Expand' : 'Collapse'}>
             {collapsed ? '☰' : '✕'}
           </button>

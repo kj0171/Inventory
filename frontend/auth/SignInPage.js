@@ -42,7 +42,7 @@ export default function SignInPage() {
     <div className="signin-wrapper">
       <div className="signin-card">
         <div className="signin-header">
-          <h1 className="signin-title">Firm Name</h1>
+          <h1 className="signin-title">{process.env.NEXT_PUBLIC_FIRM_NAME || 'Firm Name'}</h1>
           <p className="signin-subtitle">Sign in to your account</p>
         </div>
 
