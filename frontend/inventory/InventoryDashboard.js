@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useMemo } from 'react'
+import { Center, Loader } from '@mantine/core'
 import { inventoryStockService } from '../../backend'
 import StatsGrid from './StatsGrid'
 import Filters from './Filters'
@@ -202,7 +203,7 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
   }
 
   if (loading) {
-    return <div className="loading">Loading inventory data...</div>
+    return <Center py="xl"><Loader size="lg" /></Center>
   }
 
   return (

@@ -1,22 +1,21 @@
+import { Paper, SimpleGrid, Text } from '@mantine/core'
+
 export default function StatsGrid({ filteredCount, totalStock, categoriesCount, lowStock }) {
+  const stats = [
+    { label: 'Filtered Items', value: filteredCount, color: 'blue' },
+    { label: 'Total Stock', value: totalStock, color: 'green' },
+    { label: 'Categories', value: categoriesCount, color: 'violet' },
+    { label: 'Low Stock Alert', value: lowStock, color: 'red' },
+  ]
+
   return (
-    <div className="stats-grid">
-      <div className="stat-card">
-        <div className="stat-number">{filteredCount}</div>
-        <div className="stat-label">Filtered Items</div>
-      </div>
-      <div className="stat-card">
-        <div className="stat-number">{totalStock}</div>
-        <div className="stat-label">Total Stock</div>
-      </div>
-      <div className="stat-card">
-        <div className="stat-number">{categoriesCount}</div>
-        <div className="stat-label">Categories</div>
-      </div>
-      <div className="stat-card">
-        <div className="stat-number">{lowStock}</div>
-        <div className="stat-label">Low Stock Alert</div>
-      </div>
-    </div>
+    <SimpleGrid cols={{ base: 2, sm: 4 }} mb="md">
+      {stats.map(s => (
+        <Paper key={s.label} p="md" radius="md" withBorder>
+          <Text size="xs" c="dimmed" tt="uppercase" fw={600}>{s.label}</Text>
+          <Text size="xl" fw={700} c={s.color}>{s.value}</Text>
+        </Paper>
+      ))}
+    </SimpleGrid>
   )
 }

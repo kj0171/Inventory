@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { ActionIcon, Box, Center, Loader, SegmentedControl } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import Sidebar from './shared/Sidebar'
 import { useAuth, ROLES } from './shared/auth'
 import { salesOrderService, inventoryStockService, authService } from '../backend'
@@ -53,6 +55,9 @@ export default function AppDashboard() {
     }
   }, [authLoading, user, router])
 
+  const isMobile = useMediaQuery('(max-width: 768px)')
+  const sidebarWidth = sidebarCollapsed ? 60 : 240
+
   async function handleSignOut() {
     await authService.signOut()
     router.push('/')
@@ -61,11 +66,9 @@ export default function AppDashboard() {
   // Early returns AFTER all hooks
   if (authLoading) {
     return (
-      <div className="signin-wrapper">
-        <div className="signin-card" style={{ textAlign: 'center', padding: '60px 30px' }}>
-          <p style={{ color: '#666' }}>Loading...</p>
-        </div>
-      </div>
+      <Center mih="100vh">
+        <Loader size="lg" />
+      </Center>
     )
   }
 
@@ -275,7 +278,7 @@ export default function AppDashboard() {
 
 
   return (
-    <div className="app-layout">
+    <Box style={{ display: 'flex', minHeight: '100vh', overflow: 'hidden', width: '100%' }}>
       <Sidebar
         activeSection={activeSection}
         onSectionChange={setActiveSection}
@@ -288,51 +291,54 @@ export default function AppDashboard() {
         onCartToggle={() => setCartOpen(!cartOpen)}
       />
 
-      <div className={`main-content ${sidebarCollapsed ? 'main-content-expanded' : ''}`}>
-        <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>☰</button>
+      <Box
+        component="main"
+        style={{
+          marginLeft: isMobile ? 0 : sidebarWidth,
+          flex: 1,
+          padding: isMobile ? 15 : 30,
+          transition: 'margin-left 0.3s ease',
+          maxWidth: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
+          overflowX: 'hidden',
+        }}
+      >
+        {isMobile && (
+          <ActionIcon
+            variant="subtle"
+            color="dark"
+            size="lg"
+            onClick={() => setMobileMenuOpen(true)}
+            mb="xs"
+          >
+            <span style={{ fontSize: '1.4rem' }}>☰</span>
+          </ActionIcon>
+        )}
 
         {/* Inventory sub-tabs */}
         {activeSection === 'inventory' && (
-          <div className="sub-tabs">
-            <button
-              className={`sub-tab ${inventorySubTab === 'view' ? 'sub-tab-active' : ''}`}
-              onClick={() => setInventorySubTab('view')}
-            >
-              Stock View
-            </button>
-            {user.profile?.role === ROLES.ADMIN && (
-              <button
-                className={`sub-tab ${inventorySubTab === 'addstock' ? 'sub-tab-active' : ''}`}
-                onClick={() => setInventorySubTab('addstock')}
-              >
-                Add Stock
-              </button>
-            )}
-          </div>
+          <SegmentedControl
+            value={inventorySubTab}
+            onChange={setInventorySubTab}
+            data={[
+              { value: 'view', label: 'Stock View' },
+              ...(user.profile?.role === ROLES.ADMIN ? [{ value: 'addstock', label: 'Add Stock' }] : []),
+            ]}
+            mb="md"
+          />
         )}
 
         {/* Orders sub-tabs */}
         {activeSection === 'orders' && (
-          <div className="sub-tabs">
-            <button
-              className={`sub-tab ${orderSubTab === 'createorder' ? 'sub-tab-active' : ''}`}
-              onClick={() => setOrderSubTab('createorder')}
-            >
-              Create Order
-            </button>
-            <button
-              className={`sub-tab ${orderSubTab === 'sales' ? 'sub-tab-active' : ''}`}
-              onClick={() => setOrderSubTab('sales')}
-            >
-              Sales Orders
-            </button>
-            <button
-              className={`sub-tab ${orderSubTab === 'dispatch' ? 'sub-tab-active' : ''}`}
-              onClick={() => setOrderSubTab('dispatch')}
-            >
-              Dispatch
-            </button>
-          </div>
+          <SegmentedControl
+            value={orderSubTab}
+            onChange={setOrderSubTab}
+            data={[
+              { value: 'createorder', label: 'Create Order' },
+              { value: 'sales', label: 'Sales Orders' },
+              { value: 'dispatch', label: 'Dispatch' },
+            ]}
+            mb="md"
+          />
         )}
 
         {activeSection === 'inventory' && inventorySubTab === 'view' && (
@@ -384,7 +390,7 @@ export default function AppDashboard() {
           onRemoveItem={handleRemoveFromCart}
           onSubmitOrder={handleSubmitOrder}
         />
-      </div>
-    </div>
+      </Box>
+    </Box>
   )
 }
