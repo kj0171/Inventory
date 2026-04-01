@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Modal, NumberInput, Text, Group, Badge, Button, Alert, Stack } from '@mantine/core'
 
 export default function AddToCartModal({ item, currentCartQty, onClose, onAdd }) {
   const available = item.quantity - (item.blocked_qty || 0)
@@ -15,47 +16,40 @@ export default function AddToCartModal({ item, currentCartQty, onClose, onAdd })
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-        <div className="modal-header">
-          <h3>Add to Cart</h3>
-          <button className="modal-close" onClick={onClose}>✕</button>
-        </div>
-        <div className="modal-body">
-          <div className="sale-item-info">
-            <div className="sale-item-name">{item.inventory_items?.name || 'Unknown Item'}</div>
-            <div className="sale-item-meta">
-              <span>Category: {item.inventory_items?.item_category}</span>
-              <span>Stock: {item.quantity}</span>
-              <span>Available: {available}</span>
-            </div>
+    <Modal opened onClose={onClose} title="Add to Cart" centered>
+      <form onSubmit={handleSubmit}>
+        <Stack gap="md">
+          <div style={{ background: '#f8f9fa', borderRadius: 10, padding: 16 }}>
+            <Text fw={600} size="lg" mb={8}>{item.inventory_items?.name || 'Unknown Item'}</Text>
+            <Group gap="md">
+              <Badge variant="light" color="gray">{item.inventory_items?.item_category}</Badge>
+              <Text size="sm" c="dimmed">Stock: {item.quantity}</Text>
+              <Text size="sm" c="dimmed">Available: {available}</Text>
+            </Group>
           </div>
+
           {currentCartQty > 0 && (
-            <div className="cart-already-note">Already in cart: {currentCartQty} units</div>
+            <Alert color="green" variant="light">Already in cart: {currentCartQty} units</Alert>
           )}
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label>Quantity</label>
-              <input
-                type="number"
-                min="1"
-                max={available}
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                placeholder={`Max: ${available}`}
-                className="form-input"
-                autoFocus
-              />
-            </div>
-            <div className="modal-actions">
-              <button type="button" className="btn-cancel" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn-submit" disabled={!quantity || Number(quantity) <= 0 || Number(quantity) > available}>
-                {currentCartQty > 0 ? 'Update Cart' : 'Add to Cart'}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    </div>
+
+          <NumberInput
+            label="Quantity"
+            min={1}
+            max={available}
+            value={quantity}
+            onChange={setQuantity}
+            placeholder={`Max: ${available}`}
+            autoFocus
+          />
+
+          <Group justify="flex-end" gap="sm">
+            <Button variant="default" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={!quantity || quantity <= 0 || quantity > available}>
+              {currentCartQty > 0 ? 'Update Cart' : 'Add to Cart'}
+            </Button>
+          </Group>
+        </Stack>
+      </form>
+    </Modal>
   )
 }

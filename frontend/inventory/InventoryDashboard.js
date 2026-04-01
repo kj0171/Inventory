@@ -6,20 +6,15 @@ import { inventoryStockService } from '../../backend'
 import StatsGrid from './StatsGrid'
 import Filters from './Filters'
 import InventoryTable from './InventoryTable'
-import AddToCartModal from './AddToCartModal'
 
 export default function InventoryDashboard({ cartItems, onAddToCart }) {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
-  const [collapsedCategories, setCollapsedCategories] = useState({})
-  const [collapsedItemGroups, setCollapsedItemGroups] = useState({})
-  const [cartModalItem, setCartModalItem] = useState(null)
   const [filters, setFilters] = useState({
     search: '',
     category: 'all',
-    itemGroup: 'all',
+    brand: 'all',
     stockLevel: 'all',
-    ageFilter: 'all',
     sortBy: 'date',
     sortOrder: 'desc'
   })
@@ -52,49 +47,24 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
     return [...new Set(categories)].sort()
   }, [data])
 
-  const uniqueItemGroups = useMemo(() => {
-    const itemGroups = data.map(item => item.inventory_items?.item_group).filter(Boolean)
-    return [...new Set(itemGroups)].sort()
+  const uniqueBrands = useMemo(() => {
+    const brands = data.map(item => item.inventory_items?.item_group).filter(Boolean)
+    return [...new Set(brands)].sort()
   }, [data])
-
-  useEffect(() => {
-    if (data.length > 0 && Object.keys(collapsedCategories).length === 0 && Object.keys(collapsedItemGroups).length === 0) {
-      const initialCollapsedCategories = {}
-      uniqueCategories.forEach(category => { initialCollapsedCategories[category] = true })
-      setCollapsedCategories(initialCollapsedCategories)
-
-      const initialCollapsedItemGroups = {}
-      data.forEach(item => {
-        const category = item.inventory_items?.item_category
-        const itemGroup = item.inventory_items?.item_group
-        if (category && itemGroup) {
-          initialCollapsedItemGroups[`${category}:${itemGroup}`] = true
-        }
-      })
-      setCollapsedItemGroups(initialCollapsedItemGroups)
-    }
-  }, [data, uniqueCategories, collapsedCategories, collapsedItemGroups])
 
   const filteredData = useMemo(() => {
     let filtered = data.filter(item => {
       const itemName = item.inventory_items?.name?.toLowerCase() || ''
       const category = item.inventory_items?.item_category || ''
-      const itemGroup = item.inventory_items?.item_group || ''
+      const brand = item.inventory_items?.item_group || ''
       const quantity = item.quantity || 0
-      const date = new Date(item.created_at)
 
       if (filters.search && !itemName.includes(filters.search.toLowerCase())) return false
       if (filters.category !== 'all' && category !== filters.category) return false
-      if (filters.itemGroup !== 'all' && itemGroup !== filters.itemGroup) return false
+      if (filters.brand !== 'all' && brand !== filters.brand) return false
       if (filters.stockLevel === 'low' && quantity >= 10) return false
       if (filters.stockLevel === 'medium' && (quantity < 10 || quantity > 50)) return false
       if (filters.stockLevel === 'high' && quantity <= 50) return false
-
-      if (filters.ageFilter !== 'all') {
-        const daysDiff = Math.floor((new Date() - date) / (1000 * 60 * 60 * 24))
-        const minDays = parseInt(filters.ageFilter)
-        if (daysDiff < minDays) return false
-      }
       return true
     })
 
@@ -103,10 +73,6 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
       switch (filters.sortBy) {
         case 'name':
           aValue = a.inventory_items?.name || ''; bValue = b.inventory_items?.name || ''; break
-        case 'category':
-          aValue = a.inventory_items?.item_category || ''; bValue = b.inventory_items?.item_category || ''; break
-        case 'itemGroup':
-          aValue = a.inventory_items?.item_group || ''; bValue = b.inventory_items?.item_group || ''; break
         case 'quantity':
           aValue = a.quantity || 0; bValue = b.quantity || 0; break
         case 'date': default:
@@ -119,73 +85,50 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
     return filtered
   }, [data, filters])
 
-  const groupedData = useMemo(() => {
-    const categoryGroups = {}
-    filteredData.forEach(item => {
-      const category = item.inventory_items?.item_category || 'Other'
-      const itemGroup = item.inventory_items?.item_group || 'Other'
-      if (!categoryGroups[category]) categoryGroups[category] = {}
-      if (!categoryGroups[category][itemGroup]) categoryGroups[category][itemGroup] = []
-      categoryGroups[category][itemGroup].push(item)
-    })
-
-    const sortedGroups = {}
-    Object.keys(categoryGroups).sort().forEach(category => {
-      sortedGroups[category] = {}
-      Object.keys(categoryGroups[category]).sort().forEach(itemGroup => {
-        sortedGroups[category][itemGroup] = categoryGroups[category][itemGroup]
-      })
-    })
-    return sortedGroups
-  }, [filteredData])
-
   function handleFilterChange(key, value) {
     setFilters(prev => ({ ...prev, [key]: value }))
   }
 
   function clearFilters() {
     setFilters({
-      search: '', category: 'all', itemGroup: 'all',
-      stockLevel: 'all', ageFilter: 'all', sortBy: 'date', sortOrder: 'desc'
+      search: '', category: 'all', brand: 'all', stockLevel: 'all',
+      sortBy: 'date', sortOrder: 'desc'
     })
   }
 
-  function toggleCategoryCollapse(category) {
-    setCollapsedCategories(prev => ({ ...prev, [category]: !prev[category] }))
-  }
-
-  function toggleItemGroupCollapse(category, itemGroup) {
-    const key = `${category}:${itemGroup}`
-    setCollapsedItemGroups(prev => ({ ...prev, [key]: !prev[key] }))
-  }
-
-  function toggleAllCategories() {
-    const allCategories = Object.keys(groupedData)
-    const allCollapsed = allCategories.every(cat => collapsedCategories[cat])
-    if (allCollapsed) {
-      setCollapsedCategories({})
+  function handleStatClick(key) {
+    if (key === 'low') {
+      // Toggle low-stock filter
+      setFilters(prev => ({
+        ...prev,
+        stockLevel: prev.stockLevel === 'low' ? 'all' : 'low'
+      }))
     } else {
-      const newCollapsed = {}
-      allCategories.forEach(cat => { newCollapsed[cat] = true })
-      setCollapsedCategories(newCollapsed)
+      // "all" cards reset filters
+      clearFilters()
     }
   }
 
-  function handleOpenCartModal(item) {
-    setCartModalItem(item)
+  function handleSort(field) {
+    setFilters(prev => {
+      if (prev.sortBy === field) {
+        return { ...prev, sortOrder: prev.sortOrder === 'asc' ? 'desc' : 'asc' }
+      }
+      return { ...prev, sortBy: field, sortOrder: 'asc' }
+    })
   }
 
-  function handleCartAdd(item, qty) {
+  function handleInlineCart(item, qty) {
     onAddToCart(item, qty)
-    setCartModalItem(null)
   }
 
   function exportData() {
     const csvContent = [
-      ['Item Name', 'Category', 'Quantity', 'Blocked Qty', 'Available', 'Date'],
+      ['Item Name', 'Category', 'Brand', 'Quantity', 'Blocked Qty', 'Available', 'Date'],
       ...filteredData.map(row => [
         row.inventory_items?.name || '',
         row.inventory_items?.item_category || '',
+        row.inventory_items?.item_group || '',
         row.quantity,
         row.blocked_qty || 0,
         row.quantity - (row.blocked_qty || 0),
@@ -213,38 +156,28 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
         totalStock={stats.totalStock}
         categoriesCount={uniqueCategories.length}
         lowStock={stats.lowStock}
+        activeFilter={filters.stockLevel}
+        onStatClick={handleStatClick}
       />
 
       <Filters
         filters={filters}
         uniqueCategories={uniqueCategories}
-        uniqueItemGroups={uniqueItemGroups}
+        uniqueBrands={uniqueBrands}
         onFilterChange={handleFilterChange}
         onClearFilters={clearFilters}
-        onExport={exportData}
       />
 
       <InventoryTable
         filteredData={filteredData}
-        groupedData={groupedData}
         data={data}
-        collapsedCategories={collapsedCategories}
-        collapsedItemGroups={collapsedItemGroups}
-        onToggleCategory={toggleCategoryCollapse}
-        onToggleItemGroup={toggleItemGroupCollapse}
-        onToggleAll={toggleAllCategories}
-        onAddToCart={handleOpenCartModal}
+        onAddToCart={handleInlineCart}
         cartItems={cartItems}
+        sortBy={filters.sortBy}
+        sortOrder={filters.sortOrder}
+        onSort={handleSort}
+        onExport={exportData}
       />
-
-      {cartModalItem && (
-        <AddToCartModal
-          item={cartModalItem}
-          currentCartQty={(cartItems || []).find(c => c.inventory_stock_id === cartModalItem.id)?.quantity || 0}
-          onClose={() => setCartModalItem(null)}
-          onAdd={handleCartAdd}
-        />
-      )}
     </>
   )
 }

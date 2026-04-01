@@ -1,27 +1,17 @@
-export function getCategoryClass(category) {
-  if (!category) return 'category-other'
+export function getCategoryColor(category) {
+  if (!category) return { bg: '#f5f5f5', color: '#666' }
   const cat = category.toLowerCase()
-  if (cat.includes('electronic')) return 'category-electronics'
-  if (cat.includes('furniture')) return 'category-furniture'
-  if (cat.includes('clothing') || cat.includes('apparel')) return 'category-clothing'
-  if (cat.includes('book')) return 'category-books'
-  return 'category-other'
+  if (cat.includes('electronic')) return { bg: '#e3f2fd', color: '#1976d2' }
+  if (cat.includes('furniture')) return { bg: '#f3e5f5', color: '#7b1fa2' }
+  if (cat.includes('clothing') || cat.includes('apparel')) return { bg: '#e8f5e8', color: '#388e3c' }
+  if (cat.includes('book')) return { bg: '#fff3e0', color: '#f57c00' }
+  return { bg: '#f5f5f5', color: '#666' }
 }
 
-export function getQuantityClass(quantity) {
-  if (quantity > 50) return 'quantity-high'
-  if (quantity > 10) return 'quantity-medium'
-  return 'quantity-low'
-}
-
-export function getStatusClass(status) {
-  switch (status) {
-    case 'pending': return 'status-pending'
-    case 'approved': return 'status-approved'
-    case 'rejected': return 'status-rejected'
-    case 'dispatched': return 'status-dispatched'
-    default: return 'status-pending'
-  }
+export function getQuantityColor(quantity) {
+  if (quantity > 50) return 'green'
+  if (quantity > 10) return 'yellow'
+  return 'red'
 }
 
 export function formatDate(dateStr) {

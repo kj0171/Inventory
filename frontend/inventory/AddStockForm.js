@@ -1,82 +1,10 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import { Select, TextInput, NumberInput, Button, Paper, Group, Text, Stack, Alert, ActionIcon, Badge, SimpleGrid, Box } from '@mantine/core'
 import { inventoryStockService } from '../../backend'
 
 const EMPTY_ROW = { mode: 'existing', itemId: '', name: '', item_category: '', item_group: '', quantity: '', searchText: '' }
-
-function SearchableSelect({ options, value, onChange, placeholder, creatable }) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const ref = useRef(null)
-
-  const selected = options.find(o => o.value === value)
-  const filtered = options.filter(o =>
-    o.label.toLowerCase().includes(search.toLowerCase())
-  )
-  const showCreateOption = creatable && search.trim() && !options.some(o => o.label.toLowerCase() === search.trim().toLowerCase())
-
-  useEffect(() => {
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  return (
-    <div className="searchable-select" ref={ref}>
-      <button
-        type="button"
-        className="searchable-select-trigger"
-        onClick={() => { setOpen(!open); setSearch('') }}
-      >
-        <span className={selected || value ? 'searchable-select-value' : 'searchable-select-placeholder'}>
-          {selected ? selected.label : value || placeholder}
-        </span>
-        <span className="searchable-select-arrow">{open ? '▲' : '▼'}</span>
-      </button>
-
-      {open && (
-        <div className="searchable-select-dropdown">
-          <input
-            className="searchable-select-search"
-            type="text"
-            placeholder={creatable ? 'Search or type new...' : 'Search...'}
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            autoFocus
-          />
-          <div className="searchable-select-list">
-            {showCreateOption && (
-              <button
-                type="button"
-                className="searchable-select-option searchable-select-create"
-                onClick={() => { onChange(search.trim()); setOpen(false); setSearch('') }}
-              >
-                + Create "<strong>{search.trim()}</strong>"
-              </button>
-            )}
-            {filtered.length === 0 && !showCreateOption ? (
-              <div className="searchable-select-empty">No items found</div>
-            ) : (
-              filtered.map(opt => (
-                <button
-                  type="button"
-                  key={opt.value}
-                  className={`searchable-select-option ${opt.value === value ? 'searchable-select-option-active' : ''}`}
-                  onClick={() => { onChange(opt.value); setOpen(false); setSearch('') }}
-                >
-                  {opt.label}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
 
 export default function AddStockForm({ onStockAdded }) {
   const [rows, setRows] = useState([{ ...EMPTY_ROW }])
@@ -100,7 +28,6 @@ export default function AddStockForm({ onStockAdded }) {
       if (i !== index) return row
       const updated = { ...row, [field]: value }
 
-      // When switching mode, reset fields
       if (field === 'mode') {
         updated.itemId = ''
         updated.name = ''
@@ -108,7 +35,6 @@ export default function AddStockForm({ onStockAdded }) {
         updated.item_group = ''
       }
 
-      // When selecting existing item, auto-fill display info
       if (field === 'itemId' && value) {
         const item = items.find(it => it.id === value)
         if (item) {
@@ -135,7 +61,6 @@ export default function AddStockForm({ onStockAdded }) {
     setSuccessMsg('')
     setErrorMsg('')
 
-    // Validate
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       if (!row.quantity || parseInt(row.quantity) <= 0) {
@@ -192,109 +117,108 @@ export default function AddStockForm({ onStockAdded }) {
   }
 
   return (
-    <div className="add-stock-form">
-      <div className="add-stock-header">
-        <h2 className="table-title">Add Stock</h2>
-        <span className="results-count">{rows.length} item{rows.length !== 1 ? 's' : ''}</span>
-      </div>
+    <Stack gap="md">
+      <Group gap="xs">
+        <Text fw={600} size="lg">Add Stock</Text>
+        <Text size="sm" c="dimmed">{rows.length} item{rows.length !== 1 ? 's' : ''}</Text>
+      </Group>
 
-      {successMsg && <div className="stock-success">{successMsg}</div>}
-      {errorMsg && <div className="signin-error">{errorMsg}</div>}
+      {successMsg && <Alert color="green" variant="light" withCloseButton onClose={() => setSuccessMsg('')}>{successMsg}</Alert>}
+      {errorMsg && <Alert color="red" variant="light" withCloseButton onClose={() => setErrorMsg('')}>{errorMsg}</Alert>}
 
       <form onSubmit={handleSubmit}>
-        {rows.map((row, index) => (
-          <div className="stock-row" key={index}>
-            <div className="stock-row-header">
-              <span className="stock-row-number">#{index + 1}</span>
-              {rows.length > 1 && (
-                <button type="button" className="stock-row-remove" onClick={() => removeRow(index)}>✕</button>
-              )}
-            </div>
+        <Stack gap="md">
+          {rows.map((row, index) => (
+            <Paper key={index} shadow="xs" radius="md" p="md" withBorder>
+              <Group justify="space-between" mb="sm">
+                <Badge variant="light" color="blue" size="sm">#{index + 1}</Badge>
+                {rows.length > 1 && (
+                  <ActionIcon variant="subtle" color="red" size="sm" onClick={() => removeRow(index)}>✕</ActionIcon>
+                )}
+              </Group>
 
-            <div className="stock-row-fields">
-              <div className="stock-field stock-field-mode">
-                <label className="stock-label">Type</label>
-                <SearchableSelect
-                  options={[
+              <SimpleGrid cols={{ base: 1, sm: row.mode === 'new' ? 5 : 3 }} spacing="sm">
+                <Select
+                  label="Type"
+                  size="sm"
+                  data={[
                     { value: 'existing', label: 'Existing Item' },
                     { value: 'new', label: 'New Item' },
                   ]}
                   value={row.mode}
                   onChange={val => updateRow(index, 'mode', val)}
-                  placeholder="Select type"
                 />
-              </div>
 
-              {row.mode === 'existing' ? (
-                <div className="stock-field stock-field-item">
-                  <label className="stock-label">Item</label>
-                  <SearchableSelect
-                    options={items.map(item => ({
+                {row.mode === 'existing' ? (
+                  <Select
+                    label="Item"
+                    size="sm"
+                    searchable
+                    data={items.map(item => ({
                       value: item.id,
                       label: `${item.name} — ${item.item_category} / ${item.item_group}`,
                     }))}
                     value={row.itemId}
                     onChange={val => updateRow(index, 'itemId', val)}
                     placeholder="Search and select item..."
+                    nothingFoundMessage="No items found"
                   />
-                </div>
-              ) : (
-                <>
-                  <div className="stock-field stock-field-name">
-                    <label className="stock-label">Item Name</label>
-                    <input
-                      className="stock-input"
-                      type="text"
+                ) : (
+                  <>
+                    <TextInput
+                      label="Item Name"
+                      size="sm"
                       placeholder="Enter item name"
                       value={row.name}
-                      onChange={e => updateRow(index, 'name', e.target.value)}
+                      onChange={e => updateRow(index, 'name', e.currentTarget.value)}
                     />
-                  </div>
-                  <div className="stock-field stock-field-category">
-                    <label className="stock-label">Category</label>
-                    <SearchableSelect
+                    <Select
+                      label="Category"
+                      size="sm"
+                      searchable
                       creatable
-                      options={categories.map(c => ({ value: c, label: c }))}
+                      data={categories}
                       value={row.item_category}
                       onChange={val => updateRow(index, 'item_category', val)}
-                      placeholder="Select or create category"
+                      placeholder="Select or create"
+                      getCreateLabel={(q) => `+ Create "${q}"`}
+                      onCreate={(q) => { updateRow(index, 'item_category', q); return q }}
                     />
-                  </div>
-                  <div className="stock-field stock-field-group">
-                    <label className="stock-label">Brand / Group</label>
-                    <SearchableSelect
+                    <Select
+                      label="Brand"
+                      size="sm"
+                      searchable
                       creatable
-                      options={itemGroups.map(g => ({ value: g, label: g }))}
+                      data={itemGroups}
                       value={row.item_group}
                       onChange={val => updateRow(index, 'item_group', val)}
-                      placeholder="Select or create brand/group"
+                      placeholder="Select or create"
+                      getCreateLabel={(q) => `+ Create "${q}"`}
+                      onCreate={(q) => { updateRow(index, 'item_group', q); return q }}
                     />
-                  </div>
-                </>
-              )}
+                  </>
+                )}
 
-              <div className="stock-field stock-field-qty">
-                <label className="stock-label">Quantity</label>
-                <input
-                  className="stock-input"
-                  type="number"
-                  min="1"
+                <NumberInput
+                  label="Quantity"
+                  size="sm"
+                  min={1}
                   placeholder="Qty"
-                  value={row.quantity}
-                  onChange={e => updateRow(index, 'quantity', e.target.value)}
+                  value={row.quantity === '' ? '' : Number(row.quantity)}
+                  onChange={val => updateRow(index, 'quantity', val)}
                 />
-              </div>
-            </div>
-          </div>
-        ))}
+              </SimpleGrid>
+            </Paper>
+          ))}
 
-        <div className="stock-actions">
-          <button type="button" className="btn-secondary" onClick={addRow}>+ Add Row</button>
-          <button type="submit" className="btn-primary" disabled={submitting}>
-            {submitting ? 'Adding...' : `Add ${rows.length} Item${rows.length !== 1 ? 's' : ''}`}
-          </button>
-        </div>
+          <Group justify="space-between">
+            <Button variant="default" onClick={addRow}>+ Add Row</Button>
+            <Button type="submit" loading={submitting}>
+              {submitting ? 'Adding...' : `Add ${rows.length} Item${rows.length !== 1 ? 's' : ''}`}
+            </Button>
+          </Group>
+        </Stack>
       </form>
-    </div>
+    </Stack>
   )
 }

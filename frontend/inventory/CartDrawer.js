@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { Drawer, TextInput, Textarea, NumberInput, Button, Text, Group, Stack, ActionIcon, Box, Divider } from '@mantine/core'
 
 export default function CartDrawer({ cartItems, isOpen, onToggle, onUpdateQty, onRemoveItem, onSubmitOrder }) {
   const [customerName, setCustomerName] = useState('')
@@ -31,83 +32,70 @@ export default function CartDrawer({ cartItems, isOpen, onToggle, onUpdateQty, o
   }
 
   return (
-    <>
-      {/* Drawer overlay */}
-      {isOpen && <div className="cart-overlay" onClick={onToggle} />}
+    <Drawer
+      opened={isOpen}
+      onClose={onToggle}
+      title={`Cart (${cartItems.length} items, ${totalItems} units)`}
+      position="right"
+      size="sm"
+      styles={{ title: { fontWeight: 700 } }}
+    >
+      {cartItems.length === 0 ? (
+        <Text ta="center" c="dimmed" py="xl">Cart is empty. Add items from the inventory.</Text>
+      ) : (
+        <Stack gap="md">
+          {cartItems.map(item => (
+            <Group key={item.inventory_stock_id} justify="space-between" wrap="nowrap">
+              <Box style={{ minWidth: 0 }}>
+                <Text fw={600} size="sm" truncate>{item.itemName}</Text>
+                <Text size="xs" c="dimmed">{item.itemCategory}</Text>
+              </Box>
+              <Group gap="xs" wrap="nowrap">
+                <NumberInput
+                  size="xs"
+                  w={65}
+                  min={1}
+                  max={item.maxAvailable}
+                  value={item.quantity}
+                  onChange={(val) => onUpdateQty(item.inventory_stock_id, Math.max(1, Math.min(item.maxAvailable, val || 1)))}
+                  styles={{ input: { textAlign: 'center' } }}
+                />
+                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => onRemoveItem(item.inventory_stock_id)}>✕</ActionIcon>
+              </Group>
+            </Group>
+          ))}
 
-      {/* Drawer */}
-      <div className={`cart-drawer ${isOpen ? 'open' : ''}`}>
-        <div className="cart-drawer-header">
-          <h3>Cart ({cartItems.length} items, {totalItems} units)</h3>
-          <button className="modal-close" onClick={onToggle}>✕</button>
-        </div>
+          <Divider />
 
-        <div className="cart-drawer-body">
-          {cartItems.length === 0 ? (
-            <div className="empty-state"><p>Cart is empty. Add items from the inventory.</p></div>
-          ) : (
-            <>
-              <div className="cart-items-list">
-                {cartItems.map(item => (
-                  <div key={item.inventory_stock_id} className="cart-item">
-                    <div className="cart-item-info">
-                      <strong>{item.itemName}</strong>
-                      <span className="cart-item-category">{item.itemCategory}</span>
-                    </div>
-                    <div className="cart-item-controls">
-                      <input
-                        type="number"
-                        min="1"
-                        max={item.maxAvailable}
-                        value={item.quantity}
-                        onChange={(e) => onUpdateQty(item.inventory_stock_id, Math.max(1, Math.min(item.maxAvailable, Number(e.target.value) || 1)))}
-                        className="cart-qty-input"
-                      />
-                      <button className="cart-remove-btn" onClick={() => onRemoveItem(item.inventory_stock_id)}>✕</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <form onSubmit={handleSubmit} className="cart-customer-form">
-                <div className="form-group">
-                  <label>Customer Name *</label>
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="Customer name"
-                    className="form-input"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Contact</label>
-                  <input
-                    type="text"
-                    value={customerContact}
-                    onChange={(e) => setCustomerContact(e.target.value)}
-                    placeholder="Phone or email"
-                    className="form-input"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Notes</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="Order notes (optional)"
-                    className="form-input"
-                    rows={2}
-                  />
-                </div>
-                <button type="submit" className="btn-submit cart-submit-btn" disabled={submitting || cartItems.length === 0}>
-                  {submitting ? 'Placing Order...' : `Place Order (${totalItems} units)`}
-                </button>
-              </form>
-            </>
-          )}
-        </div>
-      </div>
-    </>
+          <form onSubmit={handleSubmit}>
+            <Stack gap="sm">
+              <TextInput
+                label="Customer Name"
+                required
+                value={customerName}
+                onChange={(e) => setCustomerName(e.currentTarget.value)}
+                placeholder="Customer name"
+              />
+              <TextInput
+                label="Contact"
+                value={customerContact}
+                onChange={(e) => setCustomerContact(e.currentTarget.value)}
+                placeholder="Phone or email"
+              />
+              <Textarea
+                label="Notes"
+                value={notes}
+                onChange={(e) => setNotes(e.currentTarget.value)}
+                placeholder="Order notes (optional)"
+                rows={2}
+              />
+              <Button type="submit" color="green" fullWidth loading={submitting} disabled={cartItems.length === 0}>
+                {submitting ? 'Placing Order...' : `Place Order (${totalItems} units)`}
+              </Button>
+            </Stack>
+          </form>
+        </Stack>
+      )}
+    </Drawer>
   )
 }
