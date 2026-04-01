@@ -1,21 +1,43 @@
 'use client'
 
 import { useState, useMemo, Fragment } from 'react'
+import {
+  Badge, Button, Card, Center, Collapse, Group, Loader,
+  Paper, Select, SimpleGrid, Stack, Table, Text, TextInput
+} from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 import { useAuth, ROLES } from '../shared/auth'
-import { getStatusClass, formatDate } from '../shared/utils'
+import { formatDate } from '../shared/utils'
+
+const STATUS_COLOR = {
+  pending: 'yellow',
+  approved: 'green',
+  rejected: 'red',
+  dispatched: 'blue',
+}
 
 export default function SalesOrderDashboard({ orders, loading, onApprove, onReject }) {
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('pending')
   const [searchFilter, setSearchFilter] = useState('')
+  const [customerFilter, setCustomerFilter] = useState(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
   function toggleExpand(orderId) {
     setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
   }
 
+  const customerOptions = useMemo(() => {
+    const names = [...new Set(orders.map(o => o.customer_name).filter(Boolean))].sort()
+    return names.map(n => ({ value: n, label: n }))
+  }, [orders])
+
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false
+      if (customerFilter && order.customer_name !== customerFilter) return false
       if (searchFilter) {
         const search = searchFilter.toLowerCase()
         const itemNames = (order.sales_order_items || [])
@@ -26,9 +48,18 @@ export default function SalesOrderDashboard({ orders, loading, onApprove, onReje
           !String(order.id).includes(search)
         ) return false
       }
+      if (dateFrom) {
+        const from = new Date(dateFrom)
+        if (new Date(order.created_at) < from) return false
+      }
+      if (dateTo) {
+        const to = new Date(dateTo)
+        to.setHours(23, 59, 59, 999)
+        if (new Date(order.created_at) > to) return false
+      }
       return true
     })
-  }, [orders, statusFilter, searchFilter])
+  }, [orders, statusFilter, searchFilter, customerFilter, dateFrom, dateTo])
 
   const stats = useMemo(() => ({
     total: orders.length,
@@ -51,200 +82,229 @@ export default function SalesOrderDashboard({ orders, loading, onApprove, onReje
     return (items || []).reduce((sum, li) => sum + li.quantity, 0)
   }
 
+  const statCards = [
+    { label: 'All Orders', value: stats.total, color: 'blue', filter: 'all' },
+    { label: 'Pending', value: stats.pending, color: 'yellow', filter: 'pending' },
+    { label: 'Approved', value: stats.approved, color: 'green', filter: 'approved' },
+    { label: 'Rejected', value: stats.rejected, color: 'red', filter: 'rejected' },
+    { label: 'Dispatched', value: stats.dispatched, color: 'cyan', filter: 'dispatched' },
+  ]
+
   return (
-    <>
-      <div className="stats-grid">
-        <div className="stat-card">
-          <div className="stat-number">{stats.total}</div>
-          <div className="stat-label">Total Orders</div>
-        </div>
-        <div className="stat-card stat-card-warning">
-          <div className="stat-number">{stats.pending}</div>
-          <div className="stat-label">Pending Approval</div>
-        </div>
-        <div className="stat-card stat-card-success">
-          <div className="stat-number">{stats.approved}</div>
-          <div className="stat-label">Approved</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-number">{stats.dispatched}</div>
-          <div className="stat-label">Dispatched</div>
-        </div>
-      </div>
+    <Stack gap="md">
+      {/* Stat cards as filters */}
+      <SimpleGrid cols={{ base: 3, sm: 5 }}>
+        {statCards.map(s => (
+          <Paper
+            key={s.filter}
+            p="md"
+            radius="md"
+            withBorder
+            style={{
+              cursor: 'pointer',
+              borderColor: statusFilter === s.filter ? `var(--mantine-color-${s.color}-6)` : undefined,
+              backgroundColor: statusFilter === s.filter ? `var(--mantine-color-${s.color}-0)` : undefined,
+            }}
+            onClick={() => setStatusFilter(s.filter)}
+          >
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>{s.label}</Text>
+            <Text size="xl" fw={700} c={s.color}>{s.value}</Text>
+          </Paper>
+        ))}
+      </SimpleGrid>
 
-      <div className="filters-container">
-        <div className="filters-header">
-          <h3>Sales Orders</h3>
-        </div>
-        <div className="filters-grid">
-          <div className="filter-group">
-            <label>Search</label>
-            <input
-              type="text"
-              placeholder="Search by item, customer, or order ID..."
+      {/* Filters */}
+      <Paper p="md" radius="md" withBorder>
+        <Stack gap="sm">
+          <Group grow gap="sm">
+            <TextInput
+              placeholder="Search by item or order ID…"
               value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="filter-input"
+              onChange={(e) => setSearchFilter(e.currentTarget.value)}
             />
-          </div>
-          <div className="filter-group">
-            <label>Status</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="filter-select">
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="approved">Approved</option>
-              <option value="rejected">Rejected</option>
-              <option value="dispatched">Dispatched</option>
-            </select>
-          </div>
-        </div>
-      </div>
+            <Select
+              placeholder="All Customers"
+              data={customerOptions}
+              value={customerFilter}
+              onChange={setCustomerFilter}
+              clearable
+              searchable
+            />
+          </Group>
+          <Group grow gap="sm" align="flex-end">
+            <TextInput
+              type="date"
+              label="From"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.currentTarget.value)}
+            />
+            <TextInput
+              type="date"
+              label="To"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.currentTarget.value)}
+            />
+            {(dateFrom || dateTo || searchFilter || customerFilter) && (
+              <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setCustomerFilter(null); setDateFrom(''); setDateTo('') }}>Clear</Button>
+            )}
+          </Group>
+        </Stack>
+      </Paper>
 
-      <div className="table-container">
-        <div className="table-header">
-          <h2 className="table-title">
-            Order List
-            <span className="results-count">({filteredOrders.length} orders)</span>
-          </h2>
-        </div>
+      {/* Order List */}
+      <Paper p="md" radius="md" withBorder>
 
         {loading ? (
-          <div className="empty-state">
-            <h3>Loading sales orders...</h3>
-          </div>
+          <Center py="xl"><Loader /></Center>
         ) : filteredOrders.length === 0 ? (
-          <div className="empty-state">
-            <h3>No sales orders found</h3>
-            <p>Create a sale from the Inventory tab to get started.</p>
-          </div>
-        ) : (
-          <>
-            {/* Desktop view */}
-            <div className="desktop-table">
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Items</th>
-                      <th>Total Qty</th>
-                      <th>Status</th>
-                      <th>Created</th>
-                      {isAdmin && <th>Actions</th>}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredOrders.map(order => {
-                      const items = order.sales_order_items || []
-                      const isExpanded = expandedOrders[order.id]
-                      return (
-                        <Fragment key={order.id}>
-                          <tr className="order-row clickable" onClick={() => toggleExpand(order.id)}>
-                            <td><span className="order-id">#{order.id}</span></td>
-                            <td>
-                              <div className="customer-info">
-                                <strong>{order.customer_name}</strong>
-                                {order.customer_contact && (
-                                  <span className="customer-contact">{order.customer_contact}</span>
-                                )}
-                              </div>
-                            </td>
-                            <td>
-                              <div className="item-info">
-                                <strong className="item-name">{renderItemsSummary(items)}</strong>
-                                <span className="item-category-text">{items.length} {items.length === 1 ? 'item' : 'items'}</span>
-                              </div>
-                            </td>
-                            <td><span className="quantity-badge quantity-medium">{getTotalQty(items)} units</span></td>
-                            <td><span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span></td>
-                            <td><span className="date-text">{formatDate(order.created_at)}</span></td>
-                            {isAdmin && (
-                              <td onClick={(e) => e.stopPropagation()}>
-                                {order.status === 'pending' && (
-                                  <div className="action-buttons">
-                                    <button className="btn-approve" onClick={() => onApprove(order.id)}>Approve</button>
-                                    <button className="btn-reject" onClick={() => onReject(order.id)}>Reject</button>
-                                  </div>
-                                )}
-                              </td>
-                            )}
-                          </tr>
-                          {isExpanded && items.map(li => (
-                            <tr key={li.id} className="line-item-row">
-                              <td></td>
-                              <td colSpan={2}>
-                                <div className="line-item-detail">
-                                  <span className="line-item-name">{li.inventory_items?.name || 'Unknown'}</span>
-                                  <span className="line-item-category">{li.inventory_items?.item_category || ''}</span>
-                                </div>
-                              </td>
-                              <td><span className="quantity-badge">{li.quantity} units</span></td>
-                              <td colSpan={isAdmin ? 3 : 2}></td>
-                            </tr>
-                          ))}
-                        </Fragment>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          <Center py="xl">
+            <Stack align="center" gap="xs">
+              <Text fw={500} size="lg">No sales orders found</Text>
+              <Text c="dimmed" size="sm">Create a sale from the Inventory tab to get started.</Text>
+            </Stack>
+          </Center>
+        ) : isMobile ? (
+          /* Mobile cards */
+          <Stack gap="sm">
+            {filteredOrders.map(order => {
+              const items = order.sales_order_items || []
+              const isExpanded = expandedOrders[order.id]
+              return (
+                <Card key={order.id} padding="sm" radius="md" withBorder
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => toggleExpand(order.id)}
+                >
+                  <Group justify="space-between" mb="xs">
+                    <div>
+                      <Text fw={600}>{order.customer_name}</Text>
+                      <Text size="xs" c="dimmed">#{order.id}</Text>
+                    </div>
+                    <Badge color={STATUS_COLOR[order.status] || 'gray'}>{order.status}</Badge>
+                  </Group>
 
-            {/* Mobile view */}
-            <div className="mobile-cards">
-              {filteredOrders.map(order => {
-                const items = order.sales_order_items || []
-                const isExpanded = expandedOrders[order.id]
-                return (
-                  <div key={order.id} className="inventory-card">
-                    <div className="card-header" onClick={() => toggleExpand(order.id)}>
-                      <h5 className="card-title">{order.customer_name}</h5>
-                      <span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span>
+                  <SimpleGrid cols={2} spacing="xs">
+                    <div>
+                      <Text size="xs" c="dimmed">Items</Text>
+                      <Text size="sm">{renderItemsSummary(items)}</Text>
                     </div>
-                    <div className="card-details">
-                      <div className="card-detail">
-                        <div className="card-detail-label">Order ID</div>
-                        <div className="card-detail-value">#{order.id}</div>
-                      </div>
-                      <div className="card-detail">
-                        <div className="card-detail-label">Items</div>
-                        <div className="card-detail-value">{renderItemsSummary(items)}</div>
-                      </div>
-                      <div className="card-detail">
-                        <div className="card-detail-label">Total Qty</div>
-                        <div className="card-detail-value">{getTotalQty(items)} units</div>
-                      </div>
-                      <div className="card-detail">
-                        <div className="card-detail-label">Created</div>
-                        <div className="card-detail-value">{formatDate(order.created_at)}</div>
-                      </div>
+                    <div>
+                      <Text size="xs" c="dimmed">Total Qty</Text>
+                      <Text size="sm">{getTotalQty(items)} units</Text>
                     </div>
-                    {isExpanded && (
-                      <div className="order-line-items-mobile">
-                        {items.map(li => (
-                          <div key={li.id} className="line-item-mobile">
-                            <span className="line-item-name">{li.inventory_items?.name || 'Unknown'}</span>
-                            <span className="line-item-qty">{li.quantity} units</span>
+                    <div>
+                      <Text size="xs" c="dimmed">Created</Text>
+                      <Text size="sm">{formatDate(order.created_at)}</Text>
+                    </div>
+                  </SimpleGrid>
+
+                  <Collapse in={isExpanded}>
+                    <Stack gap={4} mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
+                      {items.map(li => (
+                        <Group key={li.id} justify="space-between">
+                          <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
+                          <Badge variant="light" size="sm">{li.quantity} units</Badge>
+                        </Group>
+                      ))}
+                    </Stack>
+                  </Collapse>
+
+                  {isAdmin && order.status === 'pending' && (
+                    <Group mt="xs" onClick={(e) => e.stopPropagation()}>
+                      <Button size="xs" color="green" onClick={() => onApprove(order.id)}>Approve</Button>
+                      <Button size="xs" color="red" variant="light" onClick={() => onReject(order.id)}>Reject</Button>
+                    </Group>
+                  )}
+                </Card>
+              )
+            })}
+          </Stack>
+        ) : (
+          /* Desktop table */
+          <Table.ScrollContainer minWidth={700}>
+            <Table highlightOnHover verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Order ID</Table.Th>
+                  <Table.Th>Customer</Table.Th>
+                  <Table.Th>Items</Table.Th>
+                  <Table.Th>Total Qty</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Created</Table.Th>
+                  {isAdmin && <Table.Th>Actions</Table.Th>}
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredOrders.map(order => {
+                  const items = order.sales_order_items || []
+                  const isExpanded = expandedOrders[order.id]
+                  return (
+                    <Fragment key={order.id}>
+                      <Table.Tr
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => toggleExpand(order.id)}
+                      >
+                        <Table.Td>
+                          <Text size="sm" fw={500} c="blue">#{order.id}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <div>
+                            <Text size="sm" fw={500}>{order.customer_name}</Text>
+                            {order.customer_contact && (
+                              <Text size="xs" c="dimmed">{order.customer_contact}</Text>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                    {isAdmin && order.status === 'pending' && (
-                      <div className="card-actions">
-                        <div className="action-buttons">
-                          <button className="btn-approve" onClick={() => onApprove(order.id)}>Approve</button>
-                          <button className="btn-reject" onClick={() => onReject(order.id)}>Reject</button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </>
+                        </Table.Td>
+                        <Table.Td>
+                          <div>
+                            <Text size="sm">{renderItemsSummary(items)}</Text>
+                            <Text size="xs" c="dimmed">{items.length} {items.length === 1 ? 'item' : 'items'}</Text>
+                          </div>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge variant="light">{getTotalQty(items)} units</Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge color={STATUS_COLOR[order.status] || 'gray'}>{order.status}</Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="dimmed">{formatDate(order.created_at)}</Text>
+                        </Table.Td>
+                        {isAdmin && (
+                          <Table.Td onClick={(e) => e.stopPropagation()}>
+                            {order.status === 'pending' && (
+                              <Group gap="xs">
+                                <Button size="xs" color="green" onClick={() => onApprove(order.id)}>Approve</Button>
+                                <Button size="xs" color="red" variant="light" onClick={() => onReject(order.id)}>Reject</Button>
+                              </Group>
+                            )}
+                          </Table.Td>
+                        )}
+                      </Table.Tr>
+                      {isExpanded && items.map(li => (
+                        <Table.Tr key={li.id} style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+                          <Table.Td />
+                          <Table.Td colSpan={2}>
+                            <Group gap="xs">
+                              <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
+                              {li.inventory_items?.item_category && (
+                                <Badge variant="dot" size="sm">{li.inventory_items.item_category}</Badge>
+                              )}
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge variant="light" size="sm">{li.quantity} units</Badge>
+                          </Table.Td>
+                          <Table.Td colSpan={isAdmin ? 3 : 2} />
+                        </Table.Tr>
+                      ))}
+                    </Fragment>
+                  )
+                })}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         )}
-      </div>
-    </>
+      </Paper>
+    </Stack>
   )
 }

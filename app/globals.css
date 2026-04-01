@@ -11,7 +11,6 @@
 }
 
 html {
-  overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
 }
 
@@ -638,119 +637,6 @@ tr:last-child td {
   background: linear-gradient(135deg, #43a047 0%, #2e7d32 100%);
 }
 
-/* ==================== Status Badges ==================== */
-.status-badge {
-  display: inline-block;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.status-pending {
-  background: #fff3e0;
-  color: #e65100;
-}
-
-.status-approved {
-  background: #e8f5e9;
-  color: #2e7d32;
-}
-
-.status-rejected {
-  background: #ffebee;
-  color: #c62828;
-}
-
-.status-dispatched {
-  background: #e3f2fd;
-  color: #1565c0;
-}
-
-/* ==================== Sales & Dispatch Action Buttons ==================== */
-.btn-approve {
-  padding: 6px 14px;
-  background: #4caf50;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-approve:hover {
-  background: #388e3c;
-  transform: translateY(-1px);
-}
-
-.btn-reject {
-  padding: 6px 14px;
-  background: #ef5350;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-reject:hover {
-  background: #c62828;
-  transform: translateY(-1px);
-}
-
-.btn-dispatch {
-  padding: 6px 14px;
-  background: #1565c0;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.btn-dispatch:hover {
-  background: #0d47a1;
-  transform: translateY(-1px);
-}
-
-.dispatched-label {
-  color: #1565c0;
-  font-size: 0.8rem;
-  font-weight: 600;
-}
-
-/* ==================== Order & Item Info ==================== */
-.order-id {
-  font-family: monospace;
-  font-size: 0.85rem;
-  color: #667eea;
-  font-weight: 600;
-}
-
-.item-category-text {
-  font-size: 0.8rem;
-  color: #888;
-  display: block;
-}
-
-.customer-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.customer-contact {
-  font-size: 0.8rem;
-  color: #888;
-}
-
 .stat-card-warning {
   border-left: 4px solid #ff9800;
 }
@@ -865,20 +751,6 @@ tr:last-child td {
   outline: none;
   border-color: #667eea;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
-
-.form-textarea {
-  resize: vertical;
-  min-height: 60px;
-}
-
-.form-error {
-  color: #c62828;
-  font-size: 0.85rem;
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: #ffebee;
-  border-radius: 6px;
 }
 
 .modal-actions {
@@ -2227,248 +2099,6 @@ tr:last-child td {
   margin-bottom: 12px;
 }
 
-/* ==================== Order Line Items ==================== */
-.order-row.clickable {
-  cursor: pointer;
-}
-
-.order-row.clickable:hover {
-  background: #f5f7ff;
-}
-
-.line-item-row {
-  background: #fafbfc;
-}
-
-.line-item-row td {
-  padding-top: 4px !important;
-  padding-bottom: 4px !important;
-  font-size: 0.85rem;
-}
-
-.line-item-detail {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-left: 12px;
-}
-
-.line-item-name {
-  font-weight: 500;
-}
-
-.line-item-category {
-  font-size: 0.75rem;
-  color: #888;
-}
-
-.order-line-items-mobile {
-  border-top: 1px solid #eee;
-  padding: 8px 12px;
-}
-
-.line-item-mobile {
-  display: flex;
-  justify-content: space-between;
-  padding: 4px 0;
-  font-size: 0.85rem;
-}
-
-.line-item-qty {
-  color: #666;
-  font-weight: 500;
-}
-
-.customer-contact {
-  display: block;
-  font-size: 0.75rem;
-  color: #888;
-}
-
-/* ======= Sign In Page ======= */
-
-.signin-wrapper {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-}
-
-.signin-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  max-width: 420px;
-  overflow: hidden;
-  border: 1px solid rgba(0, 0, 0, 0.05);
-}
-
-.signin-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 40px 30px 30px;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-}
-
-.signin-header::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(45deg, rgba(255, 255, 255, 0.1) 0%, transparent 100%);
-  pointer-events: none;
-}
-
-.signin-title {
-  font-size: 1.8rem;
-  font-weight: 300;
-  margin: 0;
-  letter-spacing: 1px;
-  position: relative;
-  z-index: 1;
-}
-
-.signin-subtitle {
-  font-size: 1rem;
-  opacity: 0.9;
-  margin: 8px 0 0 0;
-  font-weight: 300;
-  position: relative;
-  z-index: 1;
-}
-
-.signin-form {
-  padding: 30px;
-}
-
-.signin-field {
-  margin-bottom: 20px;
-}
-
-.signin-label {
-  display: block;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #495057;
-  margin-bottom: 6px;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.signin-input {
-  width: 100%;
-  padding: 12px 14px;
-  border: 2px solid #e9ecef;
-  border-radius: 8px;
-  font-size: 0.95rem;
-  color: #333;
-  transition: all 0.2s ease;
-  background: #f8f9fa;
-  box-sizing: border-box;
-  font-family: inherit;
-}
-
-.signin-input:focus {
-  border-color: #667eea;
-  background: #fff;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15);
-}
-
-.signin-input::placeholder {
-  color: #adb5bd;
-}
-
-.signin-btn {
-  width: 100%;
-  padding: 14px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-  margin-top: 10px;
-  letter-spacing: 0.5px;
-  font-family: inherit;
-}
-
-.signin-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-}
-
-.signin-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-}
-
-.signin-btn:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.signin-error {
-  background: #ffebee;
-  color: #c62828;
-  padding: 10px 14px;
-  border-radius: 8px;
-  font-size: 0.9rem;
-  margin-bottom: 16px;
-  border: 1px solid #ef9a9a;
-}
-
-.btn-signout {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-size: 0.8rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-family: inherit;
-  position: relative;
-  z-index: 1;
-}
-
-.btn-signout:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-@media (max-width: 768px) {
-  .signin-wrapper {
-    padding: 15px;
-  }
-
-  .signin-card {
-    max-width: 100%;
-  }
-
-  .signin-header {
-    padding: 30px 20px 25px;
-  }
-
-  .signin-title {
-    font-size: 1.5rem;
-  }
-
-  .signin-form {
-    padding: 25px 20px;
-  }
-}
-
 /* ======= Sidebar Layout ======= */
 
 .app-layout {
@@ -2779,60 +2409,6 @@ tr:last-child td {
   color: white;
 }
 
-/* ======= Team/Customer Modal (shared by sales form) ======= */
-
-.team-modal {
-  background: white;
-  border-radius: 16px;
-  width: 100%;
-  max-width: 440px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
-  overflow: hidden;
-}
-
-.team-modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  border-bottom: 2px solid #e9ecef;
-}
-
-.team-modal-header h3 {
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: #333;
-}
-
-.modal-close-btn {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  color: #888;
-  cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 6px;
-  transition: all 0.2s ease;
-}
-
-.modal-close-btn:hover {
-  background: #e9ecef;
-  color: #333;
-}
-
-.team-form {
-  padding: 24px;
-}
-
-.team-form-actions {
-  display: flex;
-  gap: 12px;
-  justify-content: flex-end;
-  margin-top: 24px;
-}
-
 .btn-remove {
   background: none;
   border: 1px solid #ef5350;
@@ -2959,108 +2535,6 @@ tr:last-child td {
 
 select.stock-input {
   cursor: pointer;
-}
-
-/* ======= Sales Stock Batches ======= */
-
-.sales-stock-batches {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 12px;
-  border: 1px solid #eee;
-  overflow: hidden;
-  max-width: 100%;
-}
-
-.sales-batch-header {
-  display: grid;
-  grid-template-columns: 1fr 1fr minmax(70px, 100px);
-  gap: 12px;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid #e0e0e0;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #888;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.sales-batch-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr minmax(70px, 100px);
-  gap: 12px;
-  align-items: center;
-  padding: 6px 0;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.sales-batch-row:last-child {
-  border-bottom: none;
-}
-
-.sales-batch-date {
-  font-size: 0.85rem;
-  color: #555;
-}
-
-.sales-batch-sort {
-  cursor: pointer;
-  user-select: none;
-}
-
-.sales-batch-sort:hover {
-  color: #667eea;
-}
-
-.sales-batch-available {
-  font-size: 0.85rem;
-  color: #667eea;
-  font-weight: 600;
-}
-
-.sales-batch-qty {
-  max-width: 80px;
-  padding: 6px 8px;
-  text-align: center;
-  font-size: 0.85rem;
-  box-sizing: border-box;
-}
-
-/* ======= Customer Info Section ======= */
-
-.customer-info-section {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 16px;
-}
-
-.customer-info-section textarea.stock-input {
-  resize: vertical;
-  min-height: 60px;
-}
-
-.customer-select-row {
-  display: flex;
-  gap: 8px;
-  align-items: flex-start;
-}
-
-.customer-select-row .searchable-select {
-  flex: 1;
-  min-width: 0;
-}
-
-.customer-select-row .btn-sm {
-  white-space: nowrap;
-  margin-top: 0;
-  height: 40px;
 }
 
 /* ======= Searchable Select ======= */
@@ -3237,29 +2711,6 @@ select.stock-input {
   .stock-actions .btn-secondary {
     width: 100%;
     text-align: center;
-  }
-
-  .customer-info-section {
-    grid-template-columns: 1fr;
-  }
-
-  .sales-batch-header,
-  .sales-batch-row {
-    grid-template-columns: 1fr 1fr 80px;
-    gap: 8px;
-  }
-
-  .sales-batch-header {
-    font-size: 0.65rem;
-  }
-
-  .sales-batch-date,
-  .sales-batch-available {
-    font-size: 0.8rem;
-  }
-
-  .sales-stock-batches {
-    padding: 10px;
   }
 }
 
@@ -3442,10 +2893,6 @@ select.stock-input {
     text-align: center;
   }
 
-  .team-modal {
-    max-width: calc(100% - 30px);
-  }
-
 }
 
 /* ======================================================================
@@ -3573,16 +3020,6 @@ select.stock-input {
     font-size: 0.85rem;
   }
 
-  .team-modal {
-    max-width: 100%;
-    margin: 0 10px;
-    border-radius: 12px;
-  }
-
-  .team-form {
-    padding: 16px;
-  }
-
   .signin-header {
     padding: 24px 16px 20px;
   }
@@ -3611,16 +3048,10 @@ select.stock-input {
 
 /* ---------- Phones (≤ 768px) — touch & scroll fixes ---------- */
 @media (max-width: 768px) {
-  /* Kill all horizontal overflow at every level */
-  html, body, .app-layout, .main-content, .main-content-expanded, .dashboard-container {
+  /* Prevent horizontal overflow without blocking vertical scroll */
+  body, .app-layout, .main-content, .main-content-expanded, .dashboard-container {
     max-width: 100vw;
     overflow-x: hidden;
-  }
-
-  /* Smooth momentum scrolling everywhere */
-  .main-content, .main-content-expanded {
-    -webkit-overflow-scrolling: touch;
-    overflow-y: auto;
   }
 
   /* Sub-tabs: horizontal scroll when too many tabs */
@@ -3643,8 +3074,7 @@ select.stock-input {
 
   /* Cards & badges: prevent wrapping overflow */
   .quantity-badge,
-  .category-badge,
-  .status-badge {
+  .category-badge {
     white-space: nowrap;
     max-width: 100%;
     overflow: hidden;
@@ -3661,12 +3091,6 @@ select.stock-input {
   .modal-content {
     max-height: 85vh;
     max-width: 100%;
-  }
-
-  .team-modal {
-    max-width: 100%;
-    max-height: 85vh;
-    overflow-y: auto;
   }
 
   /* Cart drawer: full width on mobile */
@@ -3700,30 +3124,11 @@ select.stock-input {
     letter-spacing: 0.3px;
   }
 
-  /* Customer info section: stack on mobile */
-  .customer-info-section {
-    grid-template-columns: 1fr;
-    gap: 12px;
-    padding: 14px;
-  }
-
-  /* Sales batch grid: tighter on mobile */
-  .sales-stock-batches {
-    padding: 10px;
-    border-radius: 6px;
-  }
-
   /* Stock form row: stack fields */
   .stock-row-fields,
   .stock-row-fields:has(.stock-field-name) {
     grid-template-columns: 1fr;
     gap: 10px;
-  }
-
-  /* Order tables: make cards on mobile */
-  .order-row td {
-    word-break: break-word;
-    overflow-wrap: break-word;
   }
 
   /* Filters: full-width buttons */
@@ -3750,37 +3155,14 @@ select.stock-input {
     will-change: max-height, opacity;
   }
 
-  /* Customer select row: stack vertically */
-  .customer-select-row {
-    flex-direction: column;
-  }
-
-  .customer-select-row .btn-sm {
-    width: 100%;
-    height: auto;
-    padding: 10px;
-  }
-
   /* Ensure text never overflows container */
   .item-name,
-  .order-id,
-  .customer-info,
   .sidebar-brand-text,
   .searchable-select-value {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     max-width: 100%;
-  }
-
-  /* Sales/dispatch order detail lines */
-  .line-item-detail {
-    flex-wrap: wrap;
-    gap: 4px;
-  }
-
-  .line-item-name {
-    word-break: break-word;
   }
 
   /* Sign-in page */

@@ -1,70 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { inventoryStockService, customerService } from '../../backend'
-
-function SearchableSelect({ options, value, onChange, placeholder }) {
-  const [open, setOpen] = useState(false)
-  const [search, setSearch] = useState('')
-  const ref = useRef(null)
-
-  const selected = options.find(o => o.value === value)
-  const filtered = options.filter(o =>
-    o.label.toLowerCase().includes(search.toLowerCase())
-  )
-
-  useEffect(() => {
-    function handleClick(e) {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
-
-  return (
-    <div className="searchable-select" ref={ref}>
-      <button
-        type="button"
-        className="searchable-select-trigger"
-        onClick={() => { setOpen(!open); setSearch('') }}
-      >
-        <span className={selected ? 'searchable-select-value' : 'searchable-select-placeholder'}>
-          {selected ? selected.label : placeholder}
-        </span>
-        <span className="searchable-select-arrow">{open ? '▲' : '▼'}</span>
-      </button>
-
-      {open && (
-        <div className="searchable-select-dropdown">
-          <input
-            className="searchable-select-search"
-            type="text"
-            placeholder="Search..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            autoFocus
-          />
-          <div className="searchable-select-list">
-            {filtered.length === 0 ? (
-              <div className="searchable-select-empty">No items found</div>
-            ) : (
-              filtered.map(opt => (
-                <button
-                  type="button"
-                  key={opt.value}
-                  className={`searchable-select-option ${opt.value === value ? 'searchable-select-option-active' : ''}`}
-                  onClick={() => { onChange(opt.value); setOpen(false); setSearch('') }}
-                >
-                  {opt.label}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
+import {
+  Button, Card, Group, Stack, Title, Text, Select, TextInput,
+  NumberInput, Modal, Alert, Divider, Badge, ActionIcon,
+  SimpleGrid, Accordion, Table, Loader, Center
+} from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
 
 const EMPTY_ROW = { itemId: '', stockEntries: [], sortAsc: false }
 
@@ -83,6 +26,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
   const fetchStock = useCallback(async () => {
     const { data } = await inventoryStockService.getAll()
@@ -126,7 +70,6 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
         gst_number: newCustForm.gst_number.trim() || null,
       })
       if (error) { setNewCustError(error.message); return }
-      // Add to list & select
       setCustomers(prev => [...prev, data])
       setSelectedCustomerId(data.id)
       setCustomerName(data.name)
@@ -141,7 +84,6 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     }
   }
 
-  // Group stock by item_id, only items with at least one available stock row
   const itemsWithStock = (() => {
     const grouped = {}
     stockData.forEach(s => {
@@ -219,7 +161,6 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
       return
     }
 
-    // Collect all stock selections with qty > 0
     const allItems = []
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
@@ -247,7 +188,6 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     }
 
     setSubmitting(true)
-
     try {
       const success = await onOrderCreated({
         customer_name: customerName.trim(),
@@ -255,7 +195,6 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
         notes: customerEmail.trim(),
         items: allItems,
       })
-
       if (success) {
         setSuccessMsg('Sales order created successfully')
         setSelectedCustomerId('')
@@ -272,156 +211,206 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     }
   }
 
-  return (
-    <div className="add-stock-form">
-      <div className="add-stock-header">
-        <h2 className="table-title">Create Sales Order</h2>
-        <span className="results-count">{rows.length} item{rows.length !== 1 ? 's' : ''}</span>
-      </div>
+  const itemSelectData = itemsWithStock.map(it => {
+    const totalAvailable = it.stocks.reduce((sum, s) => sum + (s.quantity - (s.blocked_qty || 0)), 0)
+    return {
+      value: it.itemId,
+      label: `${it.name} — ${it.category} / ${it.group} (${totalAvailable} avail)`,
+    }
+  })
 
-      {successMsg && <div className="stock-success">{successMsg}</div>}
-      {errorMsg && <div className="signin-error">{errorMsg}</div>}
+  const customerSelectData = customers.map(c => ({
+    value: c.id,
+    label: c.name,
+  }))
+
+  return (
+    <Stack gap="lg">
+      {successMsg && <Alert color="green" variant="light" withCloseButton onClose={() => setSuccessMsg('')}>{successMsg}</Alert>}
+      {errorMsg && <Alert color="red" variant="light" withCloseButton onClose={() => setErrorMsg('')}>{errorMsg}</Alert>}
 
       <form onSubmit={handleSubmit}>
-        {/* Customer Selection */}
-        <div className="customer-info-section">
-          <div className="stock-field" style={{ gridColumn: '1 / -1' }}>
-            <label className="stock-label">Select Customer *</label>
-            <div className="customer-select-row">
-              <SearchableSelect
-                options={customers.map(c => ({
-                  value: c.id,
-                  label: c.name,
-                }))}                value={selectedCustomerId}
-                onChange={handleCustomerSelect}
-                placeholder="Search customer..."
-              />
-              <button type="button" className="btn-secondary btn-sm" onClick={() => setShowNewCustomer(true)}>
-                + New
-              </button>
-            </div>
-          </div>
-          {selectedCustomerId && (
-            <>
-              <div className="stock-field">
-                <label className="stock-label">Phone</label>
-                <input className="stock-input" type="tel" value={customerPhone} readOnly />
-              </div>
-              <div className="stock-field">
-                <label className="stock-label">Email</label>
-                <input className="stock-input" type="email" value={customerEmail} readOnly />
-              </div>
-            </>
-          )}
-        </div>
+        <Stack gap="lg">
+          {/* ── Customer Section ── */}
+          <Card withBorder radius="md" padding="md">
+            <Stack gap="sm">
+              <Group gap="sm" align="flex-end" grow={!isMobile} wrap="wrap">
+                <Select
+                  label="Select Customer"
+                  placeholder="Search customer..."
+                  data={customerSelectData}
+                  value={selectedCustomerId}
+                  onChange={handleCustomerSelect}
+                  searchable
+                  clearable
+                  nothingFoundMessage="No customers found"
+                  style={{ flex: 1, minWidth: 200 }}
+                  required
+                />
+                <Button variant="light" onClick={() => setShowNewCustomer(true)} mt={isMobile ? 0 : 24}>
+                  + New Customer
+                </Button>
+              </Group>
 
-        {/* Inline New Customer Modal */}
-        {showNewCustomer && (
-          <div className="modal-overlay" onClick={() => setShowNewCustomer(false)}>
-            <div className="team-modal" onClick={e => e.stopPropagation()}>
-              <div className="team-modal-header">
-                <h3>New Customer</h3>
-                <button type="button" className="modal-close-btn" onClick={() => setShowNewCustomer(false)}>✕</button>
-              </div>
-              <form className="team-form" onSubmit={handleCreateNewCustomer}>
-                {newCustError && <div className="signin-error">{newCustError}</div>}
-                <div className="signin-field">
-                  <label className="signin-label">Name *</label>
-                  <input className="signin-input" type="text" placeholder="Customer name" value={newCustForm.name}
-                    onChange={e => setNewCustForm(p => ({ ...p, name: e.target.value }))} autoFocus />
-                </div>
-                <div className="signin-field">
-                  <label className="signin-label">Mobile *</label>
-                  <input className="signin-input" type="tel" placeholder="Mobile number" value={newCustForm.mobile}
-                    onChange={e => setNewCustForm(p => ({ ...p, mobile: e.target.value }))} />
-                </div>
-                <div className="signin-field">
-                  <label className="signin-label">Email</label>
-                  <input className="signin-input" type="email" placeholder="Email (optional)" value={newCustForm.email}
-                    onChange={e => setNewCustForm(p => ({ ...p, email: e.target.value }))} />
-                </div>
-                <div className="signin-field">
-                  <label className="signin-label">GST Number</label>
-                  <input className="signin-input" type="text" placeholder="GST number (optional)" value={newCustForm.gst_number}
-                    onChange={e => setNewCustForm(p => ({ ...p, gst_number: e.target.value }))} />
-                </div>
-                <div className="team-form-actions">
-                  <button type="button" className="btn-secondary" onClick={() => setShowNewCustomer(false)}>Cancel</button>
-                  <button type="submit" className="btn-primary" disabled={newCustSubmitting}>
-                    {newCustSubmitting ? 'Creating...' : 'Add Customer'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Item Rows */}
-        {rows.map((row, index) => (
-          <div className="stock-row" key={index}>
-            <div className="stock-row-header">
-              <span className="stock-row-number">#{index + 1}</span>
-              {rows.length > 1 && (
-                <button type="button" className="stock-row-remove" onClick={() => removeRow(index)}>✕</button>
+              {selectedCustomerId && (
+                <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                  <TextInput label="Phone" value={customerPhone} readOnly variant="filled" />
+                  <TextInput label="Email" value={customerEmail} readOnly variant="filled" />
+                </SimpleGrid>
               )}
-            </div>
+            </Stack>
+          </Card>
 
-            <div className="stock-field" style={{ marginBottom: row.stockEntries.length > 0 ? 12 : 0 }}>
-              <label className="stock-label">Item</label>
-              <SearchableSelect
-                options={itemsWithStock.map(it => {
-                  const totalAvailable = it.stocks.reduce((sum, s) => sum + (s.quantity - (s.blocked_qty || 0)), 0)
-                  return {
-                    value: it.itemId,
-                    label: `${it.name} — ${it.category} / ${it.group} (${totalAvailable} available)`,
-                  }
-                })}
-                value={row.itemId}
-                onChange={val => selectItem(index, val)}
-                placeholder="Search and select item..."
-              />
-            </div>
+          {/* ── New Customer Modal ── */}
+          <Modal opened={showNewCustomer} onClose={() => setShowNewCustomer(false)} title="New Customer" centered size="md">
+            <form onSubmit={handleCreateNewCustomer}>
+              <Stack gap="sm">
+                {newCustError && <Alert color="red" variant="light">{newCustError}</Alert>}
+                <TextInput
+                  label="Name"
+                  placeholder="Customer name"
+                  value={newCustForm.name}
+                  onChange={e => setNewCustForm(p => ({ ...p, name: e.target.value }))}
+                  required
+                  autoFocus
+                />
+                <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                  <TextInput
+                    label="Mobile"
+                    placeholder="Mobile number"
+                    type="tel"
+                    value={newCustForm.mobile}
+                    onChange={e => setNewCustForm(p => ({ ...p, mobile: e.target.value }))}
+                    required
+                  />
+                  <TextInput
+                    label="Email"
+                    placeholder="Email (optional)"
+                    type="email"
+                    value={newCustForm.email}
+                    onChange={e => setNewCustForm(p => ({ ...p, email: e.target.value }))}
+                  />
+                </SimpleGrid>
+                <TextInput
+                  label="GST Number"
+                  placeholder="GST number (optional)"
+                  value={newCustForm.gst_number}
+                  onChange={e => setNewCustForm(p => ({ ...p, gst_number: e.target.value }))}
+                />
+                <Divider />
+                <Group justify="flex-end">
+                  <Button variant="default" onClick={() => setShowNewCustomer(false)}>Cancel</Button>
+                  <Button type="submit" loading={newCustSubmitting}>Add Customer</Button>
+                </Group>
+              </Stack>
+            </form>
+          </Modal>
 
-            {row.stockEntries.length > 0 && (
-              <div className="sales-stock-batches">
-                <div className="sales-batch-header">
-                  <span className="sales-batch-sort" onClick={() => toggleBatchSort(index)}>
-                    Stock Batch {row.sortAsc ? '▲' : '▼'}
-                  </span>
-                  <span>Available</span>
-                  <span>Qty to Sell</span>
-                </div>
-                {row.stockEntries.map((se, si) => (
-                  <div className="sales-batch-row" key={se.stockId}>
-                    <span className="sales-batch-date">
-                      {new Date(se.date).toLocaleDateString()}
-                    </span>
-                    <span className="sales-batch-available">
-                      {se.available} units
-                    </span>
-                    <input
-                      className="stock-input sales-batch-qty"
-                      type="number"
-                      min="0"
-                      max={se.available}
-                      placeholder="0"
-                      value={se.quantity}
-                      onChange={e => updateStockQty(index, si, e.target.value)}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+          {/* ── Item Rows ── */}
+          {rows.map((row, index) => {
+            const selectedItem = itemsWithStock.find(it => it.itemId === row.itemId)
+            return (
+              <Card key={index} withBorder radius="md" padding="md">
+                <Group justify="space-between" mb="sm">
+                  <Badge variant="light" color="blue" size="lg">Item #{index + 1}</Badge>
+                  {rows.length > 1 && (
+                    <ActionIcon variant="subtle" color="red" onClick={() => removeRow(index)} title="Remove item">
+                      ✕
+                    </ActionIcon>
+                  )}
+                </Group>
 
-        <div className="stock-actions">
-          <button type="button" className="btn-secondary" onClick={addRow}>+ Add Item</button>
-          <button type="submit" className="btn-primary" disabled={submitting}>
-            {submitting ? 'Creating...' : 'Create Order'}
-          </button>
-        </div>
+                <Select
+                  label="Select Item"
+                  placeholder="Search and select item..."
+                  data={itemSelectData}
+                  value={row.itemId}
+                  onChange={val => selectItem(index, val)}
+                  searchable
+                  clearable
+                  nothingFoundMessage="No items found"
+                  required
+                />
+
+                {row.stockEntries.length > 0 && (
+                  <Card withBorder radius="sm" padding="xs" mt="sm" bg="gray.0">
+                    <Group justify="space-between" mb="xs">
+                      <Text size="xs" fw={600} c="dimmed" tt="uppercase">Stock Batches</Text>
+                      <Button
+                        variant="subtle"
+                        size="compact-xs"
+                        onClick={() => toggleBatchSort(index)}
+                      >
+                        Date {row.sortAsc ? '↑' : '↓'}
+                      </Button>
+                    </Group>
+
+                    {isMobile ? (
+                      /* Mobile: stacked batch cards */
+                      <Stack gap="xs">
+                        {row.stockEntries.map((se, si) => (
+                          <Card key={se.stockId} withBorder radius="sm" padding="xs">
+                            <Group justify="space-between" mb={4}>
+                              <Text size="xs" c="dimmed">{new Date(se.date).toLocaleDateString()}</Text>
+                              <Badge size="sm" variant="light" color="teal">{se.available} avail</Badge>
+                            </Group>
+                            <NumberInput
+                              placeholder="Qty to sell"
+                              size="sm"
+                              min={0}
+                              max={se.available}
+                              value={se.quantity === '' ? '' : Number(se.quantity)}
+                              onChange={val => updateStockQty(index, si, val === '' ? '' : String(val))}
+                            />
+                          </Card>
+                        ))}
+                      </Stack>
+                    ) : (
+                      /* Desktop: table layout */
+                      <Table verticalSpacing={4} horizontalSpacing="sm" fontSize="xs">
+                        <Table.Thead>
+                          <Table.Tr>
+                            <Table.Th>Batch Date</Table.Th>
+                            <Table.Th>Available</Table.Th>
+                            <Table.Th w={120}>Qty to Sell</Table.Th>
+                          </Table.Tr>
+                        </Table.Thead>
+                        <Table.Tbody>
+                          {row.stockEntries.map((se, si) => (
+                            <Table.Tr key={se.stockId}>
+                              <Table.Td>{new Date(se.date).toLocaleDateString()}</Table.Td>
+                              <Table.Td>
+                                <Badge size="sm" variant="light" color="teal">{se.available} units</Badge>
+                              </Table.Td>
+                              <Table.Td>
+                                <NumberInput
+                                  size="xs"
+                                  min={0}
+                                  max={se.available}
+                                  placeholder="0"
+                                  value={se.quantity === '' ? '' : Number(se.quantity)}
+                                  onChange={val => updateStockQty(index, si, val === '' ? '' : String(val))}
+                                  styles={{ input: { width: 100 } }}
+                                />
+                              </Table.Td>
+                            </Table.Tr>
+                          ))}
+                        </Table.Tbody>
+                      </Table>
+                    )}
+                  </Card>
+                )}
+              </Card>
+            )
+          })}
+
+          {/* ── Actions ── */}
+          <Group justify="space-between">
+            <Button variant="light" onClick={addRow}>+ Add Item</Button>
+            <Button type="submit" loading={submitting}>Create Order</Button>
+          </Group>
+        </Stack>
       </form>
-    </div>
+    </Stack>
   )
 }

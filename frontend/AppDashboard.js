@@ -289,29 +289,7 @@ export default function AppDashboard() {
       />
 
       <div className={`main-content ${sidebarCollapsed ? 'main-content-expanded' : ''}`}>
-        <div className="content-header">
-          <div className="content-header-left">
-            <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>☰</button>
-            <div>
-              <h1 className="content-title">
-                {activeSection === 'inventory' && 'Inventory'}
-                {activeSection === 'orders' && 'Orders'}
-                {activeSection === 'customers' && 'Customers'}
-                {activeSection === 'team' && 'Team'}
-              </h1>
-              <p className="content-subtitle">
-                {activeSection === 'inventory' && 'Stock management and tracking'}
-                {activeSection === 'orders' && 'Sales orders and dispatch workflow'}
-                {activeSection === 'customers' && 'Manage your customers'}
-                {activeSection === 'team' && 'Manage employees and roles'}
-              </p>
-            </div>
-          </div>
-          <div className="user-info">
-            <span className="user-name">{user.profile?.full_name || user.email}</span>
-            <span className="user-role">{user.profile?.role}</span>
-          </div>
-        </div>
+        <button className="mobile-menu-btn" onClick={() => setMobileMenuOpen(true)}>☰</button>
 
         {/* Inventory sub-tabs */}
         {activeSection === 'inventory' && (

@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  Box, Button, Card, Center, PasswordInput, Stack, Text, TextInput, Alert, Title
+} from '@mantine/core'
 import { authService } from '../../backend'
 import { useAuth } from '../shared/auth'
 
@@ -26,7 +29,6 @@ export default function SignInPage() {
         return
       }
 
-      // Fetch profile and set in context
       const profile = await authService.fetchProfile(user.id)
       setUser({ ...user, access_token: session?.access_token, profile })
 
@@ -39,47 +41,58 @@ export default function SignInPage() {
   }
 
   return (
-    <div className="signin-wrapper">
-      <div className="signin-card">
-        <div className="signin-header">
-          <h1 className="signin-title">{process.env.NEXT_PUBLIC_FIRM_NAME || 'Firm Name'}</h1>
-          <p className="signin-subtitle">Sign in to your account</p>
-        </div>
+    <Center mih="100vh" p="md">
+      <Card shadow="lg" radius="lg" w="100%" maw={420} withBorder p={0} style={{ overflow: 'hidden' }}>
+        <Box
+          p="xl"
+          style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            textAlign: 'center',
+          }}
+        >
+          <Title order={2} c="white" fw={300} style={{ letterSpacing: 1 }}>
+            {process.env.NEXT_PUBLIC_FIRM_NAME || 'Firm Name'}
+          </Title>
+          <Text c="white" size="md" mt={8} opacity={0.9}>Sign in to your account</Text>
+        </Box>
 
-        <form className="signin-form" onSubmit={handleSignIn}>
-          {error && <div className="signin-error">{error}</div>}
+        <Box p="xl">
+          <form onSubmit={handleSignIn}>
+            <Stack gap="md">
+              {error && <Alert color="red" variant="light">{error}</Alert>}
 
-          <div className="signin-field">
-            <label className="signin-label" htmlFor="email">Email</label>
-            <input
-              id="email"
-              className="signin-input"
-              type="text"
-              placeholder="Enter your email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              autoComplete="username"
-            />
-          </div>
+              <TextInput
+                label="Email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={e => setEmail(e.currentTarget.value)}
+                autoComplete="username"
+              />
 
-          <div className="signin-field">
-            <label className="signin-label" htmlFor="password">Password</label>
-            <input
-              id="password"
-              className="signin-input"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoComplete="current-password"
-            />
-          </div>
+              <PasswordInput
+                label="Password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={e => setPassword(e.currentTarget.value)}
+                autoComplete="current-password"
+              />
 
-          <button type="submit" className="signin-btn" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-      </div>
-    </div>
+              <Button
+                type="submit"
+                loading={loading}
+                fullWidth
+                size="md"
+                mt="xs"
+                style={{
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                }}
+              >
+                Sign In
+              </Button>
+            </Stack>
+          </form>
+        </Box>
+      </Card>
+    </Center>
   )
 }

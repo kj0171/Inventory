@@ -1,20 +1,42 @@
 'use client'
 
 import { useState, useMemo, Fragment } from 'react'
-import { getStatusClass, formatDate } from '../shared/utils'
+import {
+  Badge, Button, Card, Center, Collapse, Group, Loader,
+  Paper, Select, SimpleGrid, Stack, Table, Text, TextInput
+} from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
+import { formatDate } from '../shared/utils'
+
+const STATUS_COLOR = {
+  pending: 'yellow',
+  approved: 'green',
+  rejected: 'red',
+  dispatched: 'blue',
+}
 
 export default function DispatchDashboard({ orders, loading, onDispatch }) {
   const [searchFilter, setSearchFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('approved')
+  const [customerFilter, setCustomerFilter] = useState(null)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
+  const isMobile = useMediaQuery('(max-width: 768px)')
 
   function toggleExpand(orderId) {
     setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
   }
 
+  const customerOptions = useMemo(() => {
+    const names = [...new Set(orders.map(o => o.customer_name).filter(Boolean))].sort()
+    return names.map(n => ({ value: n, label: n }))
+  }, [orders])
+
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false
+      if (customerFilter && order.customer_name !== customerFilter) return false
       if (searchFilter) {
         const search = searchFilter.toLowerCase()
         const itemNames = (order.sales_order_items || [])
@@ -25,12 +47,22 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
           !String(order.id).toLowerCase().includes(search)
         ) return false
       }
+      if (dateFrom) {
+        const from = new Date(dateFrom)
+        if (new Date(order.updated_at) < from) return false
+      }
+      if (dateTo) {
+        const to = new Date(dateTo)
+        to.setHours(23, 59, 59, 999)
+        if (new Date(order.updated_at) > to) return false
+      }
       return true
     })
-  }, [orders, statusFilter, searchFilter])
+  }, [orders, statusFilter, searchFilter, customerFilter, dateFrom, dateTo])
 
   const readyCount = orders.filter(o => o.status === 'approved').length
   const dispatchedCount = orders.filter(o => o.status === 'dispatched').length
+  const totalCount = orders.length
 
   function renderItemsSummary(items) {
     if (!items || items.length === 0) return 'No items'
@@ -42,183 +74,225 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
     return (items || []).reduce((sum, li) => sum + li.quantity, 0)
   }
 
+  const statCards = [
+    { label: 'All Orders', value: totalCount, color: 'blue', filter: 'all' },
+    { label: 'Ready to Dispatch', value: readyCount, color: 'yellow', filter: 'approved' },
+    { label: 'Dispatched', value: dispatchedCount, color: 'green', filter: 'dispatched' },
+  ]
+
+  const hasFilters = dateFrom || dateTo || searchFilter || customerFilter
+
   return (
-    <>
-      <div className="stats-grid">
-        <div className="stat-card stat-card-warning">
-          <div className="stat-number">{readyCount}</div>
-          <div className="stat-label">Ready to Dispatch</div>
-        </div>
-        <div className="stat-card stat-card-success">
-          <div className="stat-number">{dispatchedCount}</div>
-          <div className="stat-label">Dispatched</div>
-        </div>
-      </div>
+    <Stack gap="md">
+      {/* Stat cards as filters */}
+      <SimpleGrid cols={{ base: 3 }}>
+        {statCards.map(s => (
+          <Paper
+            key={s.filter}
+            p="md"
+            radius="md"
+            withBorder
+            style={{
+              cursor: 'pointer',
+              borderColor: statusFilter === s.filter ? `var(--mantine-color-${s.color}-6)` : undefined,
+              backgroundColor: statusFilter === s.filter ? `var(--mantine-color-${s.color}-0)` : undefined,
+            }}
+            onClick={() => setStatusFilter(s.filter)}
+          >
+            <Text size="xs" c="dimmed" tt="uppercase" fw={600}>{s.label}</Text>
+            <Text size="xl" fw={700} c={s.color}>{s.value}</Text>
+          </Paper>
+        ))}
+      </SimpleGrid>
 
-      <div className="filters-container">
-        <div className="filters-header">
-          <h3>Dispatch Queue</h3>
-        </div>
-        <div className="filters-grid">
-          <div className="filter-group">
-            <label>Search</label>
-            <input
-              type="text"
-              placeholder="Search by item, customer, or order ID..."
+      {/* Filters */}
+      <Paper p="md" radius="md" withBorder>
+        <Stack gap="sm">
+          <Group grow gap="sm">
+            <TextInput
+              placeholder="Search by item or order ID…"
               value={searchFilter}
-              onChange={(e) => setSearchFilter(e.target.value)}
-              className="filter-input"
+              onChange={(e) => setSearchFilter(e.currentTarget.value)}
             />
-          </div>
-          <div className="filter-group">
-            <label>Status</label>
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="filter-select">
-              <option value="approved">Ready to Dispatch</option>
-              <option value="dispatched">Already Dispatched</option>
-              <option value="all">All</option>
-            </select>
-          </div>
-        </div>
-      </div>
+            <Select
+              placeholder="All Customers"
+              data={customerOptions}
+              value={customerFilter}
+              onChange={setCustomerFilter}
+              clearable
+              searchable
+            />
+          </Group>
+          <Group grow gap="sm" align="flex-end">
+            <TextInput
+              type="date"
+              label="From"
+              value={dateFrom}
+              onChange={(e) => setDateFrom(e.currentTarget.value)}
+            />
+            <TextInput
+              type="date"
+              label="To"
+              value={dateTo}
+              onChange={(e) => setDateTo(e.currentTarget.value)}
+            />
+            {hasFilters && (
+              <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setCustomerFilter(null); setDateFrom(''); setDateTo('') }}>Clear</Button>
+            )}
+          </Group>
+        </Stack>
+      </Paper>
 
-      <div className="table-container">
-        <div className="table-header">
-          <h2 className="table-title">
-            Dispatch Orders
-            <span className="results-count">({filteredOrders.length} orders)</span>
-          </h2>
-        </div>
+      {/* Order List */}
+      <Paper p="md" radius="md" withBorder>
 
         {loading ? (
-          <div className="empty-state">
-            <h3>Loading dispatch orders...</h3>
-          </div>
+          <Center py="xl"><Loader /></Center>
         ) : filteredOrders.length === 0 ? (
-          <div className="empty-state">
-            <h3>No orders to dispatch</h3>
-            <p>Orders will appear here once approved by an admin.</p>
-          </div>
-        ) : (
-          <>
-            {/* Desktop view */}
-            <div className="desktop-table">
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Order ID</th>
-                      <th>Customer</th>
-                      <th>Items</th>
-                      <th>Total Qty</th>
-                      <th>Status</th>
-                      <th>Approved On</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredOrders.map(order => {
-                      const items = order.sales_order_items || []
-                      const isExpanded = expandedOrders[order.id]
-                      return (
-                        <Fragment key={order.id}>
-                          <tr className="order-row clickable" onClick={() => toggleExpand(order.id)}>
-                            <td><span className="order-id">#{order.id}</span></td>
-                            <td>
-                              <div className="customer-info">
-                                <strong>{order.customer_name}</strong>
-                                {order.customer_contact && (
-                                  <span className="customer-contact">{order.customer_contact}</span>
-                                )}
-                              </div>
-                            </td>
-                            <td>
-                              <div className="item-info">
-                                <strong className="item-name">{renderItemsSummary(items)}</strong>
-                                <span className="item-category-text">{items.length} {items.length === 1 ? 'item' : 'items'}</span>
-                              </div>
-                            </td>
-                            <td><span className="quantity-badge quantity-medium">{getTotalQty(items)} units</span></td>
-                            <td><span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span></td>
-                            <td><span className="date-text">{formatDate(order.updated_at)}</span></td>
-                            <td onClick={(e) => e.stopPropagation()}>
-                              {order.status === 'approved' && (
-                                <button className="btn-dispatch" onClick={() => onDispatch(order.id)}>
-                                  Mark Dispatched
-                                </button>
-                              )}
-                              {order.status === 'dispatched' && (
-                                <span className="dispatched-label">Completed</span>
-                              )}
-                            </td>
-                          </tr>
-                          {isExpanded && items.map(li => (
-                            <tr key={li.id} className="line-item-row">
-                              <td></td>
-                              <td colSpan={2}>
-                                <div className="line-item-detail">
-                                  <span className="line-item-name">{li.inventory_items?.name || 'Unknown'}</span>
-                                  <span className="line-item-category">{li.inventory_items?.item_category || ''}</span>
-                                </div>
-                              </td>
-                              <td><span className="quantity-badge">{li.quantity} units</span></td>
-                              <td colSpan={3}></td>
-                            </tr>
-                          ))}
-                        </Fragment>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+          <Center py="xl">
+            <Stack align="center" gap="xs">
+              <Text fw={500} size="lg">No orders to dispatch</Text>
+              <Text c="dimmed" size="sm">Orders will appear here once approved by an admin.</Text>
+            </Stack>
+          </Center>
+        ) : isMobile ? (
+          /* Mobile cards */
+          <Stack gap="sm">
+            {filteredOrders.map(order => {
+              const items = order.sales_order_items || []
+              const isExpanded = expandedOrders[order.id]
+              return (
+                <Card key={order.id} padding="sm" radius="md" withBorder
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => toggleExpand(order.id)}
+                >
+                  <Group justify="space-between" mb="xs">
+                    <div>
+                      <Text fw={600}>{order.customer_name}</Text>
+                      <Text size="xs" c="dimmed">#{order.id}</Text>
+                    </div>
+                    <Badge color={STATUS_COLOR[order.status] || 'gray'}>{order.status}</Badge>
+                  </Group>
 
-            {/* Mobile view */}
-            <div className="mobile-cards">
-              {filteredOrders.map(order => {
-                const items = order.sales_order_items || []
-                const isExpanded = expandedOrders[order.id]
-                return (
-                  <div key={order.id} className="inventory-card">
-                    <div className="card-header" onClick={() => toggleExpand(order.id)}>
-                      <h5 className="card-title">{order.customer_name}</h5>
-                      <span className={`status-badge ${getStatusClass(order.status)}`}>{order.status}</span>
+                  <SimpleGrid cols={2} spacing="xs">
+                    <div>
+                      <Text size="xs" c="dimmed">Items</Text>
+                      <Text size="sm">{renderItemsSummary(items)}</Text>
                     </div>
-                    <div className="card-details">
-                      <div className="card-detail">
-                        <div className="card-detail-label">Order ID</div>
-                        <div className="card-detail-value">#{order.id}</div>
-                      </div>
-                      <div className="card-detail">
-                        <div className="card-detail-label">Items</div>
-                        <div className="card-detail-value">{renderItemsSummary(items)}</div>
-                      </div>
-                      <div className="card-detail">
-                        <div className="card-detail-label">Total Qty</div>
-                        <div className="card-detail-value">{getTotalQty(items)} units</div>
-                      </div>
+                    <div>
+                      <Text size="xs" c="dimmed">Total Qty</Text>
+                      <Text size="sm">{getTotalQty(items)} units</Text>
                     </div>
-                    {isExpanded && (
-                      <div className="order-line-items-mobile">
-                        {items.map(li => (
-                          <div key={li.id} className="line-item-mobile">
-                            <span className="line-item-name">{li.inventory_items?.name || 'Unknown'}</span>
-                            <span className="line-item-qty">{li.quantity} units</span>
+                  </SimpleGrid>
+
+                  <Collapse in={isExpanded}>
+                    <Stack gap={4} mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
+                      {items.map(li => (
+                        <Group key={li.id} justify="space-between">
+                          <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
+                          <Badge variant="light" size="sm">{li.quantity} units</Badge>
+                        </Group>
+                      ))}
+                    </Stack>
+                  </Collapse>
+
+                  {order.status === 'approved' && (
+                    <Group mt="xs" onClick={(e) => e.stopPropagation()}>
+                      <Button size="xs" color="blue" onClick={() => onDispatch(order.id)}>Mark Dispatched</Button>
+                    </Group>
+                  )}
+                  {order.status === 'dispatched' && (
+                    <Badge mt="xs" variant="light" color="green">Completed</Badge>
+                  )}
+                </Card>
+              )
+            })}
+          </Stack>
+        ) : (
+          /* Desktop table */
+          <Table.ScrollContainer minWidth={700}>
+            <Table highlightOnHover verticalSpacing="sm">
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Order ID</Table.Th>
+                  <Table.Th>Customer</Table.Th>
+                  <Table.Th>Items</Table.Th>
+                  <Table.Th>Total Qty</Table.Th>
+                  <Table.Th>Status</Table.Th>
+                  <Table.Th>Approved On</Table.Th>
+                  <Table.Th>Actions</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                {filteredOrders.map(order => {
+                  const items = order.sales_order_items || []
+                  const isExpanded = expandedOrders[order.id]
+                  return (
+                    <Fragment key={order.id}>
+                      <Table.Tr
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => toggleExpand(order.id)}
+                      >
+                        <Table.Td>
+                          <Text size="sm" fw={500} c="blue">#{order.id}</Text>
+                        </Table.Td>
+                        <Table.Td>
+                          <div>
+                            <Text size="sm" fw={500}>{order.customer_name}</Text>
+                            {order.customer_contact && (
+                              <Text size="xs" c="dimmed">{order.customer_contact}</Text>
+                            )}
                           </div>
-                        ))}
-                      </div>
-                    )}
-                    {order.status === 'approved' && (
-                      <div className="card-actions">
-                        <button className="btn-dispatch" onClick={() => onDispatch(order.id)}>Mark Dispatched</button>
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </>
+                        </Table.Td>
+                        <Table.Td>
+                          <div>
+                            <Text size="sm">{renderItemsSummary(items)}</Text>
+                            <Text size="xs" c="dimmed">{items.length} {items.length === 1 ? 'item' : 'items'}</Text>
+                          </div>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge variant="light">{getTotalQty(items)} units</Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge color={STATUS_COLOR[order.status] || 'gray'}>{order.status}</Badge>
+                        </Table.Td>
+                        <Table.Td>
+                          <Text size="sm" c="dimmed">{formatDate(order.updated_at)}</Text>
+                        </Table.Td>
+                        <Table.Td onClick={(e) => e.stopPropagation()}>
+                          {order.status === 'approved' && (
+                            <Button size="xs" color="blue" onClick={() => onDispatch(order.id)}>Mark Dispatched</Button>
+                          )}
+                          {order.status === 'dispatched' && (
+                            <Badge variant="light" color="green">Completed</Badge>
+                          )}
+                        </Table.Td>
+                      </Table.Tr>
+                      {isExpanded && items.map(li => (
+                        <Table.Tr key={li.id} style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
+                          <Table.Td />
+                          <Table.Td colSpan={2}>
+                            <Group gap="xs">
+                              <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
+                              {li.inventory_items?.item_category && (
+                                <Badge variant="dot" size="sm">{li.inventory_items.item_category}</Badge>
+                              )}
+                            </Group>
+                          </Table.Td>
+                          <Table.Td>
+                            <Badge variant="light" size="sm">{li.quantity} units</Badge>
+                          </Table.Td>
+                          <Table.Td colSpan={3} />
+                        </Table.Tr>
+                      ))}
+                    </Fragment>
+                  )
+                })}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         )}
-      </div>
-    </>
+      </Paper>
+    </Stack>
   )
 }
