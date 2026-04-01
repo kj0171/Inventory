@@ -1,9 +1,10 @@
 import { supabase } from './supabaseClient'
+import { TABLES } from './constants'
 
 class CustomerService {
   async getAll() {
     const { data, error } = await supabase
-      .from('customers')
+      .from(TABLES.CUSTOMERS)
       .select('*')
       .order('name', { ascending: true })
     return { data, error }
@@ -11,7 +12,7 @@ class CustomerService {
 
   async create({ name, mobile, email, gst_number }) {
     const { data, error } = await supabase
-      .from('customers')
+      .from(TABLES.CUSTOMERS)
       .insert({ name, mobile, email: email || null, gst_number: gst_number || null })
       .select()
       .single()
@@ -20,7 +21,7 @@ class CustomerService {
 
   async update(id, updates) {
     const { data, error } = await supabase
-      .from('customers')
+      .from(TABLES.CUSTOMERS)
       .update(updates)
       .eq('id', id)
       .select()
@@ -30,7 +31,7 @@ class CustomerService {
 
   async remove(id) {
     const { error } = await supabase
-      .from('customers')
+      .from(TABLES.CUSTOMERS)
       .delete()
       .eq('id', id)
     return { error }
