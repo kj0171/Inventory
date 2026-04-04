@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Select, TextInput, NumberInput, Button, Paper, Group, Text, Stack, Alert, ActionIcon, Badge, SimpleGrid, Box } from '@mantine/core'
-import { inventoryStockService } from '../../backend'
+import { inventoryItemService } from '../../backend'
 
 const EMPTY_ROW = { mode: 'existing', itemId: '', name: '', item_category: '', item_group: '', quantity: '', searchText: '' }
 
@@ -14,7 +14,7 @@ export default function AddStockForm({ onStockAdded }) {
   const [errorMsg, setErrorMsg] = useState('')
 
   const fetchItems = useCallback(async () => {
-    const { data } = await inventoryStockService.getItems()
+    const { data } = await inventoryItemService.getAll()
     if (data) setItems(data)
   }, [])
 
@@ -84,7 +84,7 @@ export default function AddStockForm({ onStockAdded }) {
         let itemId = row.itemId
 
         if (row.mode === 'new') {
-          const { data: newItem, error: createError } = await inventoryStockService.createItem({
+          const { data: newItem, error: createError } = await inventoryItemService.createItem({
             name: row.name.trim(),
             item_category: row.item_category.trim(),
             item_group: row.item_group.trim(),
@@ -97,9 +97,9 @@ export default function AddStockForm({ onStockAdded }) {
           itemId = newItem.id
         }
 
-        const { error: stockError } = await inventoryStockService.addStock(itemId, parseInt(row.quantity))
-        if (stockError) {
-          setErrorMsg(`Failed to add stock for "${row.name}": ${stockError.message}`)
+        const { error: addError } = await inventoryItemService.addQuantity(itemId, parseInt(row.quantity))
+        if (addError) {
+          setErrorMsg(`Failed to add stock for "${row.name}": ${addError.message}`)
           setSubmitting(false)
           return
         }

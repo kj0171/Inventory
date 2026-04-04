@@ -6,7 +6,7 @@ import { ActionIcon, Box, Center, Loader, SegmentedControl } from '@mantine/core
 import { useMediaQuery } from '@mantine/hooks'
 import Sidebar from './shared/Sidebar'
 import { useAuth, ROLES } from './shared/auth'
-import { salesOrderService, inventoryStockService, authService } from '../backend'
+import { salesOrderService, inventoryItemService, authService } from '../backend'
 import InventoryDashboard from './inventory/InventoryDashboard'
 import SalesOrderDashboard from './sales/SalesOrderDashboard'
 import DispatchDashboard from './dispatch/DispatchDashboard'
@@ -78,52 +78,51 @@ export default function AppDashboard() {
 
   function handleAddToCart(item, quantity) {
     setCartItems(prev => {
-      const existing = prev.find(c => c.inventory_stock_id === item.id)
+      const existing = prev.find(c => c.item_id === item.id)
       if (existing) {
         return prev.map(c =>
-          c.inventory_stock_id === item.id ? { ...c, quantity } : c
+          c.item_id === item.id ? { ...c, quantity } : c
         )
       }
       return [...prev, {
-        inventory_stock_id: item.id,
-        item_id: item.item_id,
-        itemName: item.inventory_items?.name || 'Unknown',
-        itemCategory: item.inventory_items?.item_category || '',
+        item_id: item.id,
+        itemName: item.name || 'Unknown',
+        itemCategory: item.item_category || '',
         quantity,
-        maxAvailable: item.quantity - (item.blocked_qty || 0),
+        maxAvailable: (item.quantity || 0) - (item.blocked_qty || 0),
       }]
     })
   }
 
-  function handleRemoveFromCart(stockId) {
-    setCartItems(prev => prev.filter(c => c.inventory_stock_id !== stockId))
+  function handleRemoveFromCart(itemId) {
+    setCartItems(prev => prev.filter(c => c.item_id !== itemId))
   }
 
-  function handleUpdateCartQty(stockId, quantity) {
+  function handleUpdateCartQty(itemId, quantity) {
     setCartItems(prev =>
-      prev.map(c => c.inventory_stock_id === stockId ? { ...c, quantity } : c)
+      prev.map(c => c.item_id === itemId ? { ...c, quantity } : c)
     )
   }
 
-  // ---- Create order from form (same logic as cart submit) ----
+  // ---- Create order from form ----
 
   async function handleCreateOrder(orderPayload) {
-    const { data: stockData } = await inventoryStockService.getAll()
-    if (!stockData) {
+    const { data: items } = await inventoryItemService.getAll()
+    if (!items) {
       alert('Failed to validate stock. Please try again.')
       return false
     }
 
     const errors = []
-    for (const item of orderPayload.items) {
-      const stock = stockData.find(s => s.id === item.inventory_stock_id)
-      if (!stock) {
-        errors.push(`Item not found in stock`)
+    for (const lineItem of orderPayload.items) {
+      const item = items.find(i => i.id === lineItem.item_id)
+      if (!item) {
+        errors.push(`Item not found`)
         continue
       }
-      const available = stock.quantity - (stock.blocked_qty || 0)
-      if (item.quantity > available) {
-        errors.push(`${stock.inventory_items?.name}: requested ${item.quantity}, only ${available} available`)
+      const available = (item.quantity || 0) - (item.blocked_qty || 0)
+      if (lineItem.quantity > available) {
+        errors.push(`${item.name}: requested ${lineItem.quantity}, only ${available} available`)
       }
     }
 
@@ -138,11 +137,11 @@ export default function AppDashboard() {
       return false
     }
 
-    for (const item of orderPayload.items) {
-      const stock = stockData.find(s => s.id === item.inventory_stock_id)
-      if (stock) {
-        const newBlocked = (stock.blocked_qty || 0) + item.quantity
-        await inventoryStockService.updateBlockedQty(stock.id, newBlocked, item.item_id)
+    for (const lineItem of orderPayload.items) {
+      const item = items.find(i => i.id === lineItem.item_id)
+      if (item) {
+        const newBlocked = (item.blocked_qty || 0) + lineItem.quantity
+        await inventoryItemService.updateBlockedQty(item.id, newBlocked)
       }
     }
 
@@ -151,24 +150,23 @@ export default function AppDashboard() {
     return true
   }
 
-  // ---- Order submit (validate → create → block) ----
+  // ---- Order submit from cart (validate → create → block) ----
 
   async function handleSubmitOrder(customerInfo) {
-    // 1. Validate availability against live DB
-    const { data: stockData } = await inventoryStockService.getAll()
-    if (!stockData) {
+    const { data: items } = await inventoryItemService.getAll()
+    if (!items) {
       alert('Failed to validate stock. Please try again.')
       return false
     }
 
     const errors = []
     for (const cartItem of cartItems) {
-      const stock = stockData.find(s => s.id === cartItem.inventory_stock_id)
-      if (!stock) {
+      const item = items.find(i => i.id === cartItem.item_id)
+      if (!item) {
         errors.push(`${cartItem.itemName}: item not found`)
         continue
       }
-      const available = stock.quantity - (stock.blocked_qty || 0)
+      const available = (item.quantity || 0) - (item.blocked_qty || 0)
       if (cartItem.quantity > available) {
         errors.push(`${cartItem.itemName}: requested ${cartItem.quantity}, only ${available} available`)
       }
@@ -179,13 +177,11 @@ export default function AppDashboard() {
       return false
     }
 
-    // 2. Create order with line items
     const { data: order, error: createError } = await salesOrderService.create({
       customer_name: customerInfo.customer_name,
       customer_contact: customerInfo.customer_contact,
       notes: customerInfo.notes,
       items: cartItems.map(c => ({
-        inventory_stock_id: c.inventory_stock_id,
         item_id: c.item_id,
         quantity: c.quantity,
       })),
@@ -197,16 +193,14 @@ export default function AppDashboard() {
       return false
     }
 
-    // 3. Block quantities for all line items
     for (const cartItem of cartItems) {
-      const stock = stockData.find(s => s.id === cartItem.inventory_stock_id)
-      if (stock) {
-        const newBlocked = (stock.blocked_qty || 0) + cartItem.quantity
-        await inventoryStockService.updateBlockedQty(stock.id, newBlocked, cartItem.item_id)
+      const item = items.find(i => i.id === cartItem.item_id)
+      if (item) {
+        const newBlocked = (item.blocked_qty || 0) + cartItem.quantity
+        await inventoryItemService.updateBlockedQty(item.id, newBlocked)
       }
     }
 
-    // 4. Update state
     setSalesOrders(prev => [order, ...prev])
     setCartItems([])
     setCartOpen(false)
@@ -237,12 +231,11 @@ export default function AppDashboard() {
 
     // Unblock quantities for all line items
     if (order?.sales_order_items) {
-      const { data: stockData } = await inventoryStockService.getAll()
       for (const lineItem of order.sales_order_items) {
-        const stock = stockData?.find(s => s.id === lineItem.inventory_stock_id)
-        if (stock) {
-          const newBlocked = Math.max(0, (stock.blocked_qty || 0) - lineItem.quantity)
-          await inventoryStockService.updateBlockedQty(stock.id, newBlocked, lineItem.item_id)
+        const { data: item } = await inventoryItemService.getById(lineItem.item_id)
+        if (item) {
+          const newBlocked = Math.max(0, (item.blocked_qty || 0) - lineItem.quantity)
+          await inventoryItemService.updateBlockedQty(item.id, newBlocked)
         }
       }
     }
@@ -261,14 +254,8 @@ export default function AppDashboard() {
 
     // Reduce quantity + unblock for all line items
     if (order?.sales_order_items) {
-      const { data: stockData } = await inventoryStockService.getAll()
       for (const lineItem of order.sales_order_items) {
-        const stock = stockData?.find(s => s.id === lineItem.inventory_stock_id)
-        if (stock) {
-          const newBlocked = Math.max(0, (stock.blocked_qty || 0) - lineItem.quantity)
-          await inventoryStockService.updateBlockedQty(stock.id, newBlocked, lineItem.item_id)
-          await inventoryStockService.reduceQuantity(stock.id, lineItem.quantity, lineItem.item_id)
-        }
+        await inventoryItemService.reduceQuantity(lineItem.item_id, lineItem.quantity)
       }
     }
     setInventoryRefreshKey(prev => prev + 1)

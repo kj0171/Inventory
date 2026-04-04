@@ -7,8 +7,7 @@ function mapOrderFromDb(order) {
   return {
     ...order,
     sales_order_items: (order.sales_order_items || []).map(li => {
-      const { stock_id, ...rest } = li
-      return { ...rest, inventory_stock_id: stock_id, inventory_items: InventoryItemDto.fromDao(li.inventory_items) }
+      return { ...li, inventory_items: InventoryItemDto.fromDao(li.inventory_items) }
     })
   }
 }
@@ -17,7 +16,6 @@ const ORDER_SELECT = `
   *,
   sales_order_items (
     id,
-    stock_id,
     item_id,
     quantity,
     inventory_items ( name, category, brand )
@@ -52,7 +50,7 @@ export class SalesOrderService {
     // 2. Insert line items
     const lineItems = order.items.map(item => ({
       sales_order_id: header.id,
-      stock_id: item.inventory_stock_id,
+      stock_id: null,
       item_id: item.item_id,
       quantity: item.quantity,
     }))

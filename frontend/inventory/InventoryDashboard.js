@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { Center, Loader } from '@mantine/core'
-import { inventoryStockService } from '../../backend'
+import { inventoryItemService } from '../../backend'
 import StatsGrid from './StatsGrid'
 import Filters from './Filters'
 import InventoryTable from './InventoryTable'
@@ -32,10 +32,10 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
 
   async function fetchData() {
     setLoading(true)
-    const { data, error } = await inventoryStockService.getAll()
+    const { data, error } = await inventoryItemService.getAll()
     if (!error && data) {
       setData(data)
-      setStats(inventoryStockService.calculateStats(data))
+      setStats(inventoryItemService.calculateStats(data))
     } else if (error) {
       console.error('Error fetching data:', error)
     }
@@ -43,20 +43,20 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
   }
 
   const uniqueCategories = useMemo(() => {
-    const categories = data.map(item => item.inventory_items?.item_category).filter(Boolean)
+    const categories = data.map(item => item.item_category).filter(Boolean)
     return [...new Set(categories)].sort()
   }, [data])
 
   const uniqueBrands = useMemo(() => {
-    const brands = data.map(item => item.inventory_items?.item_group).filter(Boolean)
+    const brands = data.map(item => item.item_group).filter(Boolean)
     return [...new Set(brands)].sort()
   }, [data])
 
   const filteredData = useMemo(() => {
     let filtered = data.filter(item => {
-      const itemName = item.inventory_items?.name?.toLowerCase() || ''
-      const category = item.inventory_items?.item_category || ''
-      const brand = item.inventory_items?.item_group || ''
+      const itemName = item.name?.toLowerCase() || ''
+      const category = item.item_category || ''
+      const brand = item.item_group || ''
       const quantity = item.quantity || 0
 
       if (filters.search && !itemName.includes(filters.search.toLowerCase())) return false
@@ -72,11 +72,11 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
       let aValue, bValue
       switch (filters.sortBy) {
         case 'name':
-          aValue = a.inventory_items?.name || ''; bValue = b.inventory_items?.name || ''; break
+          aValue = a.name || ''; bValue = b.name || ''; break
         case 'quantity':
           aValue = a.quantity || 0; bValue = b.quantity || 0; break
         case 'date': default:
-          aValue = new Date(a.created_at); bValue = new Date(b.created_at); break
+          aValue = a.name || ''; bValue = b.name || ''; break
       }
       if (aValue < bValue) return filters.sortOrder === 'asc' ? -1 : 1
       if (aValue > bValue) return filters.sortOrder === 'asc' ? 1 : -1
@@ -124,15 +124,14 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
 
   function exportData() {
     const csvContent = [
-      ['Item Name', 'Category', 'Brand', 'Quantity', 'Blocked Qty', 'Available', 'Date'],
+      ['Item Name', 'Category', 'Brand', 'Quantity', 'Blocked Qty', 'Available'],
       ...filteredData.map(row => [
-        row.inventory_items?.name || '',
-        row.inventory_items?.item_category || '',
-        row.inventory_items?.item_group || '',
+        row.name || '',
+        row.item_category || '',
+        row.item_group || '',
         row.quantity,
         row.blocked_qty || 0,
         row.quantity - (row.blocked_qty || 0),
-        new Date(row.created_at).toLocaleDateString()
       ])
     ].map(row => row.map(cell => `"${cell}"`).join(',')).join('\n')
 

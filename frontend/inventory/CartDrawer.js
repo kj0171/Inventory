@@ -45,7 +45,7 @@ export default function CartDrawer({ cartItems, isOpen, onToggle, onUpdateQty, o
       ) : (
         <Stack gap="md">
           {cartItems.map(item => (
-            <Group key={item.inventory_stock_id} justify="space-between" wrap="nowrap">
+            <Group key={item.item_id} justify="space-between" wrap="nowrap">
               <Box style={{ minWidth: 0 }}>
                 <Text fw={600} size="sm" truncate>{item.itemName}</Text>
                 <Text size="xs" c="dimmed">{item.itemCategory}</Text>
@@ -57,10 +57,10 @@ export default function CartDrawer({ cartItems, isOpen, onToggle, onUpdateQty, o
                   min={1}
                   max={item.maxAvailable}
                   value={item.quantity}
-                  onChange={(val) => onUpdateQty(item.inventory_stock_id, Math.max(1, Math.min(item.maxAvailable, val || 1)))}
+                  onChange={(val) => onUpdateQty(item.item_id, Math.max(1, Math.min(item.maxAvailable, val || 1)))}
                   styles={{ input: { textAlign: 'center' } }}
                 />
-                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => onRemoveItem(item.inventory_stock_id)}>✕</ActionIcon>
+                <ActionIcon variant="subtle" color="red" size="sm" onClick={() => onRemoveItem(item.item_id)}>✕</ActionIcon>
               </Group>
             </Group>
           ))}

@@ -15,8 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Inventory Management",
+  title: process.env.NEXT_PUBLIC_APP_TITLE || "Inventory Management",
   description: "Professional inventory tracking and management system",
+  icons: {
+    icon: process.env.NEXT_PUBLIC_FAVICON_URL || "/favicon.ico",
+  },
 };
 
 export default function RootLayout({

@@ -14,4 +14,5 @@ export class InventoryItemDao {
   }
 
   static SELECT_BRIEF = 'id, name, category, brand'
+  static SELECT_FULL = 'id, name, category, brand, quantity, blocked, unit'
 }

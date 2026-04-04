@@ -1,5 +1,5 @@
 export { supabase } from './supabaseClient'
-export { inventoryStockService, InventoryStockService } from './InventoryStockService'
+export { inventoryItemService, InventoryItemService } from './InventoryItemService'
 export { salesOrderService, SalesOrderService } from './SalesOrderService'
 export { authService, AuthService } from './AuthService'
 export { userService, UserService } from './UserService'

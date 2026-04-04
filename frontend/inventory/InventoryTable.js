@@ -1,7 +1,7 @@
 'use client'
 
 import { Paper, Group, Text, Button, Badge, Table, Box, NumberInput, ActionIcon, Card, SimpleGrid, Stack } from '@mantine/core'
-import { getCategoryColor, getQuantityColor, formatDate, formatDateShort } from '../shared/utils'
+import { getCategoryColor, getQuantityColor } from '../shared/utils'
 
 function QuantityBadge({ qty }) {
   return <Badge variant="light" color={getQuantityColor(qty)} size="sm">{qty}</Badge>
@@ -62,7 +62,6 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort 
             <SortHeader label="Stock" field="quantity" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
             <Table.Th>Blocked</Table.Th>
             <Table.Th>Available</Table.Th>
-            <SortHeader label="Updated" field="date" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
             <Table.Th>Cart</Table.Th>
           </Table.Tr>
         </Table.Thead>
@@ -73,14 +72,13 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort 
             return (
               <Table.Tr key={row.id} bg={isLow ? 'red.0' : undefined}>
                 <Table.Td>
-                  <Text fw={600} size="sm">{row.inventory_items?.name || 'Unknown'}</Text>
+                  <Text fw={600} size="sm">{row.name || 'Unknown'}</Text>
                 </Table.Td>
-                <Table.Td><CategoryBadge category={row.inventory_items?.item_category || 'Other'} /></Table.Td>
-                <Table.Td><Badge variant="light" color="blue" size="xs">{row.inventory_items?.item_group || 'N/A'}</Badge></Table.Td>
+                <Table.Td><CategoryBadge category={row.item_category || 'Other'} /></Table.Td>
+                <Table.Td><Badge variant="light" color="blue" size="xs">{row.item_group || 'N/A'}</Badge></Table.Td>
                 <Table.Td><QuantityBadge qty={row.quantity} /></Table.Td>
                 <Table.Td><Badge variant="light" color="red" size="sm">{row.blocked_qty || 0}</Badge></Table.Td>
                 <Table.Td><QuantityBadge qty={avail} /></Table.Td>
-                <Table.Td><Text size="xs" c="dimmed">{formatDate(row.created_at)}</Text></Table.Td>
                 <Table.Td>
                   <InlineCartControl
                     available={avail}
@@ -109,10 +107,10 @@ function MobileView({ rows, getCartQty, onAddToCart }) {
             <Card key={row.id} shadow="xs" radius="sm" p="sm" withBorder bg={isLow ? 'red.0' : undefined}>
               <Group justify="space-between" mb="xs" wrap="nowrap">
                 <Box style={{ minWidth: 0 }}>
-                  <Text fw={600} size="sm" truncate>{row.inventory_items?.name || 'Unknown'}</Text>
+                  <Text fw={600} size="sm" truncate>{row.name || 'Unknown'}</Text>
                   <Group gap={4} mt={2}>
-                    <CategoryBadge category={row.inventory_items?.item_category || 'Other'} />
-                    <Badge variant="light" color="blue" size="xs">{row.inventory_items?.item_group || 'N/A'}</Badge>
+                    <CategoryBadge category={row.item_category || 'Other'} />
+                    <Badge variant="light" color="blue" size="xs">{row.item_group || 'N/A'}</Badge>
                   </Group>
                 </Box>
                 <InlineCartControl
@@ -147,8 +145,8 @@ function MobileView({ rows, getCartQty, onAddToCart }) {
 export default function InventoryTable({
   filteredData, data, onAddToCart, cartItems, sortBy, sortOrder, onSort, onExport
 }) {
-  function getCartQty(stockId) {
-    const item = (cartItems || []).find(c => c.inventory_stock_id === stockId)
+  function getCartQty(itemId) {
+    const item = (cartItems || []).find(c => c.item_id === itemId)
     return item ? item.quantity : 0
   }
 
