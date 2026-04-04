@@ -5,7 +5,7 @@ import {
   Modal, NumberInput, TextInput, Textarea, Alert, Button,
   Group, Badge, Card, Text, Stack
 } from '@mantine/core'
-import { salesOrderService, inventoryStockService } from '../../backend'
+import { salesOrderService, inventoryItemService } from '../../backend'
 
 export default function CreateSaleModal({ item, onClose, onSubmit }) {
   const [quantity, setQuantity] = useState('')
@@ -38,12 +38,13 @@ export default function CreateSaleModal({ item, onClose, onSubmit }) {
     setSubmitting(true)
 
     const { data: order, error: createError } = await salesOrderService.create({
-      inventory_stock_id: item.id,
-      item_id: item.item_id,
-      quantity: qty,
       customer_name: customerName.trim(),
       customer_contact: customerContact.trim(),
       notes: notes.trim(),
+      items: [{
+        item_id: item.id,
+        quantity: qty,
+      }],
     })
 
     if (createError || !order) {
@@ -54,7 +55,7 @@ export default function CreateSaleModal({ item, onClose, onSubmit }) {
     }
 
     const newBlocked = (item.blocked_qty || 0) + qty
-    await inventoryStockService.updateBlockedQty(item.id, newBlocked, item.item_id)
+    await inventoryItemService.updateBlockedQty(item.id, newBlocked)
 
     setSubmitting(false)
     onSubmit(order)
@@ -64,9 +65,9 @@ export default function CreateSaleModal({ item, onClose, onSubmit }) {
     <Modal opened onClose={onClose} title="Create Sale Order" size="md" centered>
       <Stack gap="md">
         <Card padding="sm" radius="sm" withBorder bg="gray.0">
-          <Text fw={600}>{item.inventory_items?.name || 'Unknown Item'}</Text>
+          <Text fw={600}>{item.name || 'Unknown Item'}</Text>
           <Group gap="md" mt={4}>
-            <Badge variant="light" color="gray">{item.inventory_items?.item_category}</Badge>
+            <Badge variant="light" color="gray">{item.item_category}</Badge>
             <Text size="sm" c="dimmed">Stock: {item.quantity}</Text>
             <Text size="sm" c="dimmed">Available: {available}</Text>
           </Group>
