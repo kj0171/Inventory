@@ -7,6 +7,7 @@ import StatsGrid from './StatsGrid'
 import Filters from './Filters'
 import InventoryTable from './InventoryTable'
 import UnitDetailPanel from './UnitDetailPanel'
+import { TRACKING_ENABLED } from '../shared/trackingConfig'
 
 export default function InventoryDashboard({ cartItems, onAddToCart }) {
   const [data, setData] = useState([])
@@ -179,7 +180,7 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
         onExport={exportData}
       />
 
-      <UnitDetailPanel />
+      {TRACKING_ENABLED && <UnitDetailPanel />}
     </>
   )
 }

@@ -26,6 +26,14 @@ table td, table th {
 .mantine-Badge-root {
   white-space: nowrap;
   overflow: visible;
+  text-overflow: unset;
+  max-width: none;
+}
+
+.mantine-Badge-label {
+  overflow: visible;
+  text-overflow: unset;
+  white-space: nowrap;
 }
 
 .mantine-Table-tr td {

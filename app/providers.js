@@ -23,6 +23,11 @@ const theme = createTheme({
         th: { fontWeight: 700, color: '#333', fontSize: '0.85rem', textTransform: 'uppercase', letterSpacing: '0.3px' },
       },
     },
+    Badge: {
+      styles: {
+        root: { textTransform: 'none' },
+      },
+    },
   },
 })
 

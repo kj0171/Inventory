@@ -9,6 +9,7 @@ import { useMediaQuery } from '@mantine/hooks'
 import { formatDate } from '../shared/utils'
 import { getUnitsForItem, registerUnits } from '../shared/unitStore'
 import ScannerInput from '../shared/ScannerInput'
+import { TRACKING_ENABLED } from '../shared/trackingConfig'
 
 const STATUS_COLOR = {
   pending: 'yellow',
@@ -268,7 +269,7 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
 
 function DispatchLineItem({ lineItem, orderStatus }) {
   const itemId = lineItem.item_id || lineItem.inventory_items?.id
-  const units = itemId ? getUnitsForItem(itemId) : []
+  const units = TRACKING_ENABLED && itemId ? getUnitsForItem(itemId) : []
   const availableUnits = units.filter(u => u.status === 'available')
   const needed = lineItem.quantity
   const [scannedForDispatch, setScannedForDispatch] = useState([])
@@ -285,6 +286,12 @@ function DispatchLineItem({ lineItem, orderStatus }) {
         <Badge variant="light" size="sm">{needed} units</Badge>
         <Badge variant="light" color="green" size="sm">✓ Dispatched</Badge>
       </Group>
+    )
+  }
+
+  if (!TRACKING_ENABLED) {
+    return (
+      <Badge variant="light" size="sm">{needed} units</Badge>
     )
   }
 

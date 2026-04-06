@@ -3,6 +3,7 @@
 import { Paper, Group, Text, Button, Badge, Table, Box, ActionIcon, Card, SimpleGrid, Stack } from '@mantine/core'
 import { getCategoryColor, getQuantityColor } from '../shared/utils'
 import { openUnitDrawer } from './UnitDetailPanel'
+import { TRACKING_ENABLED } from '../shared/trackingConfig'
 
 function QuantityBadge({ qty }) {
   return <Badge variant="light" color={getQuantityColor(qty)} size="sm">{qty}</Badge>
@@ -11,7 +12,7 @@ function QuantityBadge({ qty }) {
 function CategoryBadge({ category }) {
   const { bg, color } = getCategoryColor(category)
   return (
-    <Badge size="xs" tt="uppercase" styles={{ root: { background: bg, color, fontWeight: 500 } }}>
+    <Badge size="xs" styles={{ root: { background: bg, color, fontWeight: 500, textTransform: 'none' } }}>
       {category}
     </Badge>
   )
@@ -74,8 +75,8 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort 
               <Table.Tr
                 key={row.id}
                 bg={isLow ? 'red.0' : undefined}
-                style={{ cursor: 'pointer' }}
-                onClick={() => openUnitDrawer(row)}
+                style={{ cursor: TRACKING_ENABLED ? 'pointer' : 'default' }}
+                onClick={() => TRACKING_ENABLED && openUnitDrawer(row)}
               >
                 <Table.Td>
                   <Text fw={600} size="sm">{row.name || 'Unknown'}</Text>
@@ -117,8 +118,8 @@ function MobileView({ rows, getCartQty, onAddToCart }) {
               p="sm"
               withBorder
               bg={isLow ? 'red.0' : undefined}
-              style={{ cursor: 'pointer' }}
-              onClick={() => openUnitDrawer(row)}
+              style={{ cursor: TRACKING_ENABLED ? 'pointer' : 'default' }}
+              onClick={() => TRACKING_ENABLED && openUnitDrawer(row)}
             >
               <Group justify="space-between" mb="xs" wrap="nowrap">
                 <Box style={{ minWidth: 0 }}>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ActionIcon, Box, Center, Loader, SegmentedControl } from '@mantine/core'
+import { ActionIcon, Badge, Box, Center, Loader, SegmentedControl, Stack, Text } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import Sidebar from './shared/Sidebar'
 import { useAuth, ROLES } from './shared/auth'
@@ -16,6 +16,7 @@ import CartDrawer from './inventory/CartDrawer'
 import AddStockForm from './inventory/AddStockForm'
 import CreateSalesOrderForm from './sales/CreateSalesOrderForm'
 import CustomerManagement from './customer/CustomerManagement'
+import { TRACKING_ENABLED } from './shared/trackingConfig'
 
 export default function AppDashboard() {
   const router = useRouter()
@@ -334,7 +335,7 @@ export default function AppDashboard() {
             value={dispatchSubTab}
             onChange={setDispatchSubTab}
             data={[
-              { value: 'registration', label: 'Registration' },
+              { value: 'registration', label: TRACKING_ENABLED ? 'Registration' : '🔒 Registration' },
               { value: 'dispatch', label: 'Dispatch' },
             ]}
             mb="md"
@@ -367,7 +368,20 @@ export default function AppDashboard() {
         )}
 
         {activeSection === 'dispatch' && dispatchSubTab === 'registration' && (
-          <ReceiptBarcodeRegistration />
+          TRACKING_ENABLED ? (
+            <ReceiptBarcodeRegistration />
+          ) : (
+            <Center py={80}>
+              <Stack align="center" gap="md" maw={400}>
+                <Text style={{ fontSize: 48 }}>🔒</Text>
+                <Text fw={700} size="xl" ta="center">Item-Level Tracking</Text>
+                <Text c="dimmed" ta="center" size="sm">
+                  Enable item-level tracking to unlock barcode registration, unit scanning, and per-unit traceability across your inventory and dispatch workflows.
+                </Text>
+                <Badge variant="light" color="blue" size="lg">Contact your admin to enable</Badge>
+              </Stack>
+            </Center>
+          )
         )}
 
         {activeSection === 'dispatch' && dispatchSubTab === 'dispatch' && (
