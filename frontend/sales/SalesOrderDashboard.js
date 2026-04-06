@@ -3,7 +3,7 @@
 import { useState, useMemo, Fragment } from 'react'
 import {
   Badge, Button, Card, Center, Collapse, Group, Loader,
-  Paper, Select, SimpleGrid, Stack, Table, Text, TextInput
+  Paper, SimpleGrid, Stack, Table, Text, TextInput
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { useAuth, ROLES } from '../shared/auth'
@@ -19,7 +19,6 @@ const STATUS_COLOR = {
 export default function SalesOrderDashboard({ orders, loading, onApprove, onReject }) {
   const [statusFilter, setStatusFilter] = useState('pending')
   const [searchFilter, setSearchFilter] = useState('')
-  const [customerFilter, setCustomerFilter] = useState(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
@@ -29,15 +28,9 @@ export default function SalesOrderDashboard({ orders, loading, onApprove, onReje
     setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
   }
 
-  const customerOptions = useMemo(() => {
-    const names = [...new Set(orders.map(o => o.customer_name).filter(Boolean))].sort()
-    return names.map(n => ({ value: n, label: n }))
-  }, [orders])
-
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false
-      if (customerFilter && order.customer_name !== customerFilter) return false
       if (searchFilter) {
         const search = searchFilter.toLowerCase()
         const itemNames = (order.sales_order_items || [])
@@ -59,7 +52,7 @@ export default function SalesOrderDashboard({ orders, loading, onApprove, onReje
       }
       return true
     })
-  }, [orders, statusFilter, searchFilter, customerFilter, dateFrom, dateTo])
+  }, [orders, statusFilter, searchFilter, dateFrom, dateTo])
 
   const stats = useMemo(() => ({
     total: orders.length,
@@ -113,43 +106,21 @@ export default function SalesOrderDashboard({ orders, loading, onApprove, onReje
         ))}
       </SimpleGrid>
 
-      {/* Filters */}
-      <Paper p="md" radius="md" withBorder>
-        <Stack gap="sm">
-          <Group grow gap="sm">
-            <TextInput
-              placeholder="Search by item or order ID…"
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.currentTarget.value)}
-            />
-            <Select
-              placeholder="All Customers"
-              data={customerOptions}
-              value={customerFilter}
-              onChange={setCustomerFilter}
-              clearable
-              searchable
-            />
-          </Group>
-          <Group grow gap="sm" align="flex-end">
-            <TextInput
-              type="date"
-              label="From"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.currentTarget.value)}
-            />
-            <TextInput
-              type="date"
-              label="To"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.currentTarget.value)}
-            />
-            {(dateFrom || dateTo || searchFilter || customerFilter) && (
-              <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setCustomerFilter(null); setDateFrom(''); setDateTo('') }}>Clear</Button>
-            )}
-          </Group>
-        </Stack>
-      </Paper>
+      {/* Filters — single row */}
+      <Group gap="sm">
+        <TextInput
+          size="sm"
+          placeholder="Search by item, customer, order ID…"
+          value={searchFilter}
+          onChange={(e) => setSearchFilter(e.currentTarget.value)}
+          style={{ flex: 1 }}
+        />
+        <TextInput size="sm" type="date" placeholder="From" value={dateFrom} onChange={(e) => setDateFrom(e.currentTarget.value)} w={140} />
+        <TextInput size="sm" type="date" placeholder="To" value={dateTo} onChange={(e) => setDateTo(e.currentTarget.value)} w={140} />
+        {(dateFrom || dateTo || searchFilter) && (
+          <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setDateFrom(''); setDateTo('') }}>Clear</Button>
+        )}
+      </Group>
 
       {/* Order List */}
       <Paper p="md" radius="md" withBorder>

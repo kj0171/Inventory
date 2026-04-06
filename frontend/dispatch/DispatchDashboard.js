@@ -3,10 +3,13 @@
 import { useState, useMemo, Fragment } from 'react'
 import {
   Badge, Button, Card, Center, Collapse, Group, Loader,
-  Paper, Select, SimpleGrid, Stack, Table, Text, TextInput
+  Paper, SimpleGrid, Stack, Table, Text, TextInput
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { formatDate } from '../shared/utils'
+import { getUnitsForItem, registerUnits } from '../shared/unitStore'
+import ScannerInput from '../shared/ScannerInput'
+import { TRACKING_ENABLED } from '../shared/trackingConfig'
 
 const STATUS_COLOR = {
   pending: 'yellow',
@@ -18,7 +21,6 @@ const STATUS_COLOR = {
 export default function DispatchDashboard({ orders, loading, onDispatch }) {
   const [searchFilter, setSearchFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('approved')
-  const [customerFilter, setCustomerFilter] = useState(null)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
@@ -28,15 +30,9 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
     setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
   }
 
-  const customerOptions = useMemo(() => {
-    const names = [...new Set(orders.map(o => o.customer_name).filter(Boolean))].sort()
-    return names.map(n => ({ value: n, label: n }))
-  }, [orders])
-
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false
-      if (customerFilter && order.customer_name !== customerFilter) return false
       if (searchFilter) {
         const search = searchFilter.toLowerCase()
         const itemNames = (order.sales_order_items || [])
@@ -58,7 +54,7 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
       }
       return true
     })
-  }, [orders, statusFilter, searchFilter, customerFilter, dateFrom, dateTo])
+  }, [orders, statusFilter, searchFilter, dateFrom, dateTo])
 
   const readyCount = orders.filter(o => o.status === 'approved').length
   const dispatchedCount = orders.filter(o => o.status === 'dispatched').length
@@ -80,7 +76,7 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
     { label: 'Dispatched', value: dispatchedCount, color: 'green', filter: 'dispatched' },
   ]
 
-  const hasFilters = dateFrom || dateTo || searchFilter || customerFilter
+  const hasFilters = dateFrom || dateTo || searchFilter
 
   return (
     <Stack gap="md">
@@ -105,43 +101,21 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
         ))}
       </SimpleGrid>
 
-      {/* Filters */}
-      <Paper p="md" radius="md" withBorder>
-        <Stack gap="sm">
-          <Group grow gap="sm">
-            <TextInput
-              placeholder="Search by item or order ID…"
-              value={searchFilter}
-              onChange={(e) => setSearchFilter(e.currentTarget.value)}
-            />
-            <Select
-              placeholder="All Customers"
-              data={customerOptions}
-              value={customerFilter}
-              onChange={setCustomerFilter}
-              clearable
-              searchable
-            />
-          </Group>
-          <Group grow gap="sm" align="flex-end">
-            <TextInput
-              type="date"
-              label="From"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.currentTarget.value)}
-            />
-            <TextInput
-              type="date"
-              label="To"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.currentTarget.value)}
-            />
-            {hasFilters && (
-              <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setCustomerFilter(null); setDateFrom(''); setDateTo('') }}>Clear</Button>
-            )}
-          </Group>
-        </Stack>
-      </Paper>
+      {/* Filters — single row */}
+      <Group gap="sm">
+        <TextInput
+          size="sm"
+          placeholder="Search by item, customer, order ID…"
+          value={searchFilter}
+          onChange={e => setSearchFilter(e.currentTarget.value)}
+          style={{ flex: 1 }}
+        />
+        <TextInput size="sm" type="date" placeholder="From" value={dateFrom} onChange={e => setDateFrom(e.currentTarget.value)} w={140} />
+        <TextInput size="sm" type="date" placeholder="To" value={dateTo} onChange={e => setDateTo(e.currentTarget.value)} w={140} />
+        {hasFilters && (
+          <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setDateFrom(''); setDateTo('') }}>Clear</Button>
+        )}
+      </Group>
 
       {/* Order List */}
       <Paper p="md" radius="md" withBorder>
@@ -185,13 +159,10 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
                     </div>
                   </SimpleGrid>
 
-                  <Collapse in={isExpanded}>
-                    <Stack gap={4} mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
+                  <Collapse expanded={isExpanded}>
+                    <Stack gap="xs" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
                       {items.map(li => (
-                        <Group key={li.id} justify="space-between">
-                          <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
-                          <Badge variant="light" size="sm">{li.quantity} units</Badge>
-                        </Group>
+                        <DispatchLineItem key={li.id} lineItem={li} orderStatus={order.status} />
                       ))}
                     </Stack>
                   </Collapse>
@@ -279,10 +250,9 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
                               )}
                             </Group>
                           </Table.Td>
-                          <Table.Td>
-                            <Badge variant="light" size="sm">{li.quantity} units</Badge>
+                          <Table.Td colSpan={4}>
+                            <DispatchLineItem lineItem={li} orderStatus={order.status} />
                           </Table.Td>
-                          <Table.Td colSpan={3} />
                         </Table.Tr>
                       ))}
                     </Fragment>
@@ -293,6 +263,62 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
           </Table.ScrollContainer>
         )}
       </Paper>
+    </Stack>
+  )
+}
+
+function DispatchLineItem({ lineItem, orderStatus }) {
+  const itemId = lineItem.item_id || lineItem.inventory_items?.id
+  const units = TRACKING_ENABLED && itemId ? getUnitsForItem(itemId) : []
+  const availableUnits = units.filter(u => u.status === 'available')
+  const needed = lineItem.quantity
+  const [scannedForDispatch, setScannedForDispatch] = useState([])
+
+  function handleScan(barcodes) {
+    setScannedForDispatch(prev => [...prev, ...barcodes])
+    // Also register them if they're new
+    if (itemId) registerUnits(itemId, barcodes)
+  }
+
+  if (orderStatus === 'dispatched') {
+    return (
+      <Group gap="xs">
+        <Badge variant="light" size="sm">{needed} units</Badge>
+        <Badge variant="light" color="green" size="sm">✓ Dispatched</Badge>
+      </Group>
+    )
+  }
+
+  if (!TRACKING_ENABLED) {
+    return (
+      <Badge variant="light" size="sm">{needed} units</Badge>
+    )
+  }
+
+  const tagged = scannedForDispatch.length
+
+  return (
+    <Stack gap="xs" onClick={e => e.stopPropagation()}>
+      <Group gap="xs">
+        <Badge variant="light" size="sm">{needed} units needed</Badge>
+        {tagged > 0 && (
+          <Badge variant="light" color="green" size="sm">{tagged}/{needed} scanned</Badge>
+        )}
+        {availableUnits.length > 0 && (
+          <Badge variant="light" color="blue" size="xs">{availableUnits.length} pre-registered</Badge>
+        )}
+      </Group>
+      {tagged < needed && (
+        <ScannerInput
+          remaining={needed - tagged}
+          registered={tagged}
+          onRegister={handleScan}
+          autoFocus={false}
+        />
+      )}
+      {tagged >= needed && (
+        <Badge color="green" variant="light" size="sm">✓ All units scanned</Badge>
+      )}
     </Stack>
   )
 }
