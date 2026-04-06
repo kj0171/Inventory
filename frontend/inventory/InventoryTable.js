@@ -1,7 +1,8 @@
 'use client'
 
-import { Paper, Group, Text, Button, Badge, Table, Box, NumberInput, ActionIcon, Card, SimpleGrid, Stack } from '@mantine/core'
+import { Paper, Group, Text, Button, Badge, Table, Box, ActionIcon, Card, SimpleGrid, Stack } from '@mantine/core'
 import { getCategoryColor, getQuantityColor } from '../shared/utils'
+import { openUnitDrawer } from './UnitDetailPanel'
 
 function QuantityBadge({ qty }) {
   return <Badge variant="light" color={getQuantityColor(qty)} size="sm">{qty}</Badge>
@@ -70,7 +71,12 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort 
             const avail = row.quantity - (row.blocked_qty || 0)
             const isLow = avail > 0 && avail < 10
             return (
-              <Table.Tr key={row.id} bg={isLow ? 'red.0' : undefined}>
+              <Table.Tr
+                key={row.id}
+                bg={isLow ? 'red.0' : undefined}
+                style={{ cursor: 'pointer' }}
+                onClick={() => openUnitDrawer(row)}
+              >
                 <Table.Td>
                   <Text fw={600} size="sm">{row.name || 'Unknown'}</Text>
                 </Table.Td>
@@ -79,7 +85,7 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort 
                 <Table.Td><QuantityBadge qty={row.quantity} /></Table.Td>
                 <Table.Td><Badge variant="light" color="red" size="sm">{row.blocked_qty || 0}</Badge></Table.Td>
                 <Table.Td><QuantityBadge qty={avail} /></Table.Td>
-                <Table.Td>
+                <Table.Td onClick={(e) => e.stopPropagation()}>
                   <InlineCartControl
                     available={avail}
                     cartQty={getCartQty(row.id)}
@@ -104,7 +110,16 @@ function MobileView({ rows, getCartQty, onAddToCart }) {
           const avail = row.quantity - (row.blocked_qty || 0)
           const isLow = avail > 0 && avail < 10
           return (
-            <Card key={row.id} shadow="xs" radius="sm" p="sm" withBorder bg={isLow ? 'red.0' : undefined}>
+            <Card
+              key={row.id}
+              shadow="xs"
+              radius="sm"
+              p="sm"
+              withBorder
+              bg={isLow ? 'red.0' : undefined}
+              style={{ cursor: 'pointer' }}
+              onClick={() => openUnitDrawer(row)}
+            >
               <Group justify="space-between" mb="xs" wrap="nowrap">
                 <Box style={{ minWidth: 0 }}>
                   <Text fw={600} size="sm" truncate>{row.name || 'Unknown'}</Text>
@@ -113,11 +128,13 @@ function MobileView({ rows, getCartQty, onAddToCart }) {
                     <Badge variant="light" color="blue" size="xs">{row.item_group || 'N/A'}</Badge>
                   </Group>
                 </Box>
-                <InlineCartControl
-                  available={avail}
-                  cartQty={getCartQty(row.id)}
-                  onAdd={(qty) => onAddToCart(row, qty)}
-                />
+                <Box onClick={(e) => e.stopPropagation()}>
+                  <InlineCartControl
+                    available={avail}
+                    cartQty={getCartQty(row.id)}
+                    onAdd={(qty) => onAddToCart(row, qty)}
+                  />
+                </Box>
               </Group>
               <SimpleGrid cols={3} spacing="xs">
                 <Box>

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Select, TextInput, NumberInput, Button, Paper, Group, Text, Stack, Alert, ActionIcon, Badge, SimpleGrid, Box } from '@mantine/core'
 import { inventoryItemService } from '../../backend'
+import { addStockReceipt } from '../shared/stockReceipts'
 
 const EMPTY_ROW = { mode: 'existing', itemId: '', name: '', item_category: '', item_group: '', quantity: '', searchText: '' }
 
@@ -80,6 +81,8 @@ export default function AddStockForm({ onStockAdded }) {
     setSubmitting(true)
 
     try {
+      const resolvedItems = []
+
       for (const row of rows) {
         let itemId = row.itemId
 
@@ -103,7 +106,17 @@ export default function AddStockForm({ onStockAdded }) {
           setSubmitting(false)
           return
         }
+
+        resolvedItems.push({
+          itemId,
+          name: row.name,
+          item_category: row.item_category,
+          item_group: row.item_group,
+          quantity: parseInt(row.quantity),
+        })
       }
+
+      addStockReceipt({ items: resolvedItems })
 
       setSuccessMsg(`Successfully added ${rows.length} stock entr${rows.length === 1 ? 'y' : 'ies'}`)
       setRows([{ ...EMPTY_ROW }])

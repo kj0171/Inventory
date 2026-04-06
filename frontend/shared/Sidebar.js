@@ -7,6 +7,7 @@ import { useAuth, canAccessWithRole } from './auth'
 const NAV_ITEMS = [
   { id: 'inventory', label: 'Inventory', icon: '📦' },
   { id: 'orders', label: 'Orders', icon: '📋' },
+  { id: 'dispatch', label: 'Dispatch', icon: '🚚' },
   { id: 'customers', label: 'Customers', icon: '🧑‍💼' },
   { id: 'team', label: 'Team', icon: '👥' },
 ]

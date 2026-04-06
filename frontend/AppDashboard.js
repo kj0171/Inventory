@@ -10,6 +10,7 @@ import { salesOrderService, inventoryItemService, authService } from '../backend
 import InventoryDashboard from './inventory/InventoryDashboard'
 import SalesOrderDashboard from './sales/SalesOrderDashboard'
 import DispatchDashboard from './dispatch/DispatchDashboard'
+import ReceiptBarcodeRegistration from './dispatch/ReceiptBarcodeRegistration'
 import TeamManagement from './team/TeamManagement'
 import CartDrawer from './inventory/CartDrawer'
 import AddStockForm from './inventory/AddStockForm'
@@ -22,6 +23,7 @@ export default function AppDashboard() {
   const [activeSection, setActiveSection] = useState('inventory')
   const [orderSubTab, setOrderSubTab] = useState('createorder')
   const [inventorySubTab, setInventorySubTab] = useState('view')
+  const [dispatchSubTab, setDispatchSubTab] = useState('registration')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [salesOrders, setSalesOrders] = useState([])
@@ -286,7 +288,7 @@ export default function AppDashboard() {
           padding: isMobile ? 15 : 30,
           transition: 'margin-left 0.3s ease',
           maxWidth: isMobile ? '100%' : `calc(100% - ${sidebarWidth}px)`,
-          overflowX: 'hidden',
+          overflowX: 'auto',
         }}
       >
         {isMobile && (
@@ -314,7 +316,6 @@ export default function AppDashboard() {
           />
         )}
 
-        {/* Orders sub-tabs */}
         {activeSection === 'orders' && (
           <SegmentedControl
             value={orderSubTab}
@@ -322,6 +323,18 @@ export default function AppDashboard() {
             data={[
               { value: 'createorder', label: 'Create Order' },
               { value: 'sales', label: 'Sales Orders' },
+            ]}
+            mb="md"
+          />
+        )}
+
+        {/* Dispatch sub-tabs */}
+        {activeSection === 'dispatch' && (
+          <SegmentedControl
+            value={dispatchSubTab}
+            onChange={setDispatchSubTab}
+            data={[
+              { value: 'registration', label: 'Registration' },
               { value: 'dispatch', label: 'Dispatch' },
             ]}
             mb="md"
@@ -353,7 +366,11 @@ export default function AppDashboard() {
           />
         )}
 
-        {activeSection === 'orders' && orderSubTab === 'dispatch' && (
+        {activeSection === 'dispatch' && dispatchSubTab === 'registration' && (
+          <ReceiptBarcodeRegistration />
+        )}
+
+        {activeSection === 'dispatch' && dispatchSubTab === 'dispatch' && (
           <DispatchDashboard
             orders={dispatchOrders}
             loading={loadingOrders}

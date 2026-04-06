@@ -6,6 +6,7 @@ import { inventoryItemService } from '../../backend'
 import StatsGrid from './StatsGrid'
 import Filters from './Filters'
 import InventoryTable from './InventoryTable'
+import UnitDetailPanel from './UnitDetailPanel'
 
 export default function InventoryDashboard({ cartItems, onAddToCart }) {
   const [data, setData] = useState([])
@@ -177,6 +178,8 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
         onSort={handleSort}
         onExport={exportData}
       />
+
+      <UnitDetailPanel />
     </>
   )
 }

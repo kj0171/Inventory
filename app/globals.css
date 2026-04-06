@@ -17,6 +17,27 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
+/* Prevent text clipping in tables and badges */
+table td, table th {
+  white-space: normal;
+  word-break: break-word;
+}
+
+.mantine-Badge-root {
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.mantine-Table-tr td {
+  overflow: visible;
+}
+
+.mantine-ScrollArea-root,
+.mantine-Table-scrollContainer {
+  overflow: visible;
+  overflow-x: auto;
+}
+
 /* Prevent inputs from causing zoom on iOS (16px minimum) */
 @media (max-width: 768px) {
   input, select, textarea {
