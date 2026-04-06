@@ -1,6 +1,7 @@
 'use client'
 
-import { Paper, Group, Text, Button, Badge, Table, Box, ActionIcon, Card, SimpleGrid, Stack } from '@mantine/core'
+import { useState, useEffect } from 'react'
+import { Paper, Group, Text, Button, Badge, Table, Box, ActionIcon, Card, SimpleGrid, Stack, Pagination } from '@mantine/core'
 import { getCategoryColor, getQuantityColor } from '../shared/utils'
 import { openUnitDrawer } from './UnitDetailPanel'
 import { TRACKING_ENABLED } from '../shared/trackingConfig'
@@ -159,10 +160,19 @@ function MobileView({ rows, getCartQty, onAddToCart }) {
   )
 }
 
+const PAGE_SIZE = 50
+
 /* ==================== Main ==================== */
 export default function InventoryTable({
   filteredData, data, onAddToCart, cartItems, sortBy, sortOrder, onSort, onExport
 }) {
+  const [page, setPage] = useState(1)
+  const totalPages = Math.ceil(filteredData.length / PAGE_SIZE)
+  const paginatedData = filteredData.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
+
+  // Reset to page 1 when filters/sort change the data
+  useEffect(() => { setPage(1) }, [filteredData.length, sortBy, sortOrder])
+
   function getCartQty(itemId) {
     const item = (cartItems || []).find(c => c.item_id === itemId)
     return item ? item.quantity : 0
@@ -191,7 +201,7 @@ export default function InventoryTable({
       ) : (
         <Box p={{ base: 'xs', sm: 'md' }}>
           <DesktopView
-            rows={filteredData}
+            rows={paginatedData}
             getCartQty={getCartQty}
             onAddToCart={onAddToCart}
             sortBy={sortBy}
@@ -199,10 +209,18 @@ export default function InventoryTable({
             onSort={onSort}
           />
           <MobileView
-            rows={filteredData}
+            rows={paginatedData}
             getCartQty={getCartQty}
             onAddToCart={onAddToCart}
           />
+          {totalPages > 1 && (
+            <Group justify="space-between" mt="md" px="xs">
+              <Text size="sm" c="dimmed">
+                Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, filteredData.length)} of {filteredData.length}
+              </Text>
+              <Pagination value={page} onChange={setPage} total={totalPages} size="sm" />
+            </Group>
+          )}
         </Box>
       )}
     </Paper>
