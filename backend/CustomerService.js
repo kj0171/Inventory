@@ -10,10 +10,10 @@ class CustomerService {
     return { data, error }
   }
 
-  async create({ name, mobile, email, gst_number }) {
+  async create({ name, mobile, email, gst_number, address }) {
     const { data, error } = await supabase
       .from(TABLES.CUSTOMERS)
-      .insert({ name, mobile, email: email || null, gst_number: gst_number || null })
+      .insert({ name, mobile, email: email || null, gst_number: gst_number || null, address: address || null })
       .select()
       .single()
     return { data, error }

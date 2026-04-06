@@ -18,7 +18,7 @@ const STATUS_COLOR = {
   dispatched: 'blue',
 }
 
-export default function DispatchDashboard({ orders, loading, onDispatch }) {
+export default function DispatchDashboard({ orders, customersMap = {}, loading, onDispatch }) {
   const [searchFilter, setSearchFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState('approved')
   const [dateFrom, setDateFrom] = useState('')
@@ -39,7 +39,7 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
           .map(li => li.inventory_items?.name || '').join(' ').toLowerCase()
         if (
           !itemNames.includes(search) &&
-          !order.customer_name?.toLowerCase().includes(search) &&
+          !(customersMap[order.customer_id]?.name || order.customer_name || '').toLowerCase().includes(search) &&
           !String(order.id).toLowerCase().includes(search)
         ) return false
       }
@@ -142,8 +142,11 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
                 >
                   <Group justify="space-between" mb="xs">
                     <div>
-                      <Text fw={600}>{order.customer_name}</Text>
+                      <Text fw={600}>{customersMap[order.customer_id]?.name || order.customer_name || 'Unknown'}</Text>
                       <Text size="xs" c="dimmed">#{order.id}</Text>
+                      {(customersMap[order.customer_id]?.address || order.customer_address) && (
+                        <Text size="xs" c="dimmed">{customersMap[order.customer_id]?.address || order.customer_address}</Text>
+                      )}
                     </div>
                     <Badge color={STATUS_COLOR[order.status] || 'gray'}>{order.status}</Badge>
                   </Group>
@@ -209,9 +212,12 @@ export default function DispatchDashboard({ orders, loading, onDispatch }) {
                         </Table.Td>
                         <Table.Td>
                           <div>
-                            <Text size="sm" fw={500}>{order.customer_name}</Text>
-                            {order.customer_contact && (
-                              <Text size="xs" c="dimmed">{order.customer_contact}</Text>
+                            <Text size="sm" fw={500}>{customersMap[order.customer_id]?.name || order.customer_name || 'Unknown'}</Text>
+                            {(customersMap[order.customer_id]?.mobile || order.customer_contact) && (
+                              <Text size="xs" c="dimmed">{customersMap[order.customer_id]?.mobile || order.customer_contact}</Text>
+                            )}
+                            {(customersMap[order.customer_id]?.address || order.customer_address) && (
+                              <Text size="xs" c="dimmed">{customersMap[order.customer_id]?.address || order.customer_address}</Text>
                             )}
                           </div>
                         </Table.Td>

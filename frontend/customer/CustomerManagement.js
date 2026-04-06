@@ -15,7 +15,7 @@ export default function CustomerManagement() {
   const [editingCustomer, setEditingCustomer] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
-  const [form, setForm] = useState({ name: '', mobile: '', email: '', gst_number: '' })
+  const [form, setForm] = useState({ name: '', mobile: '', email: '', gst_number: '', address: '' })
   const [search, setSearch] = useState('')
   const isMobile = useMediaQuery('(max-width: 768px)')
 
@@ -30,7 +30,7 @@ export default function CustomerManagement() {
 
   function openAdd() {
     setEditingCustomer(null)
-    setForm({ name: '', mobile: '', email: '', gst_number: '' })
+    setForm({ name: '', mobile: '', email: '', gst_number: '', address: '' })
     setFormError('')
     setShowForm(true)
   }
@@ -42,6 +42,7 @@ export default function CustomerManagement() {
       mobile: customer.mobile || '',
       email: customer.email || '',
       gst_number: customer.gst_number || '',
+      address: customer.address || '',
     })
     setFormError('')
     setShowForm(true)
@@ -68,6 +69,7 @@ export default function CustomerManagement() {
           mobile: form.mobile.trim(),
           email: form.email.trim() || null,
           gst_number: form.gst_number.trim() || null,
+          address: form.address.trim() || null,
         })
         if (error) { setFormError(error.message); return }
       } else {
@@ -76,6 +78,7 @@ export default function CustomerManagement() {
           mobile: form.mobile.trim(),
           email: form.email.trim() || null,
           gst_number: form.gst_number.trim() || null,
+          address: form.address.trim() || null,
         })
         if (error) { setFormError(error.message); return }
       }
@@ -163,6 +166,12 @@ export default function CustomerManagement() {
               value={form.gst_number}
               onChange={e => handleChange('gst_number', e.target.value)}
             />
+            <TextInput
+              label="Address"
+              placeholder="Address (optional)"
+              value={form.address}
+              onChange={e => handleChange('address', e.target.value)}
+            />
             <Divider />
             <Group justify="flex-end">
               <Button variant="default" onClick={() => setShowForm(false)}>Cancel</Button>
@@ -206,6 +215,12 @@ export default function CustomerManagement() {
                     <Text size="xs">{cust.gst_number}</Text>
                   </Group>
                 )}
+                {cust.address && (
+                  <Group gap="xs">
+                    <Text size="xs" c="dimmed" w={55}>Address</Text>
+                    <Text size="xs">{cust.address}</Text>
+                  </Group>
+                )}
               </Stack>
               <Group gap="xs" mt="xs">
                 <Button size="compact-xs" variant="subtle" onClick={() => openEdit(cust)}>Edit</Button>
@@ -224,6 +239,7 @@ export default function CustomerManagement() {
                 <Table.Th>Mobile</Table.Th>
                 <Table.Th>Email</Table.Th>
                 <Table.Th>GST Number</Table.Th>
+                <Table.Th>Address</Table.Th>
                 <Table.Th>Actions</Table.Th>
               </Table.Tr>
             </Table.Thead>
@@ -234,6 +250,7 @@ export default function CustomerManagement() {
                   <Table.Td>{cust.mobile || '—'}</Table.Td>
                   <Table.Td>{cust.email || '—'}</Table.Td>
                   <Table.Td>{cust.gst_number || '—'}</Table.Td>
+                  <Table.Td>{cust.address || '—'}</Table.Td>
                   <Table.Td>
                     <Group gap="xs">
                       <Button size="compact-xs" variant="subtle" onClick={() => openEdit(cust)}>Edit</Button>

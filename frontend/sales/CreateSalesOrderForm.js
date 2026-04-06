@@ -17,10 +17,12 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
   const [customerName, setCustomerName] = useState('')
   const [customerPhone, setCustomerPhone] = useState('')
   const [customerEmail, setCustomerEmail] = useState('')
+  const [customerAddress, setCustomerAddress] = useState('')
   const [showNewCustomer, setShowNewCustomer] = useState(false)
-  const [newCustForm, setNewCustForm] = useState({ name: '', mobile: '', email: '', gst_number: '' })
+  const [newCustForm, setNewCustForm] = useState({ name: '', mobile: '', email: '', gst_number: '', address: '' })
   const [newCustSubmitting, setNewCustSubmitting] = useState(false)
   const [newCustError, setNewCustError] = useState('')
+  const [customersLoading, setCustomersLoading] = useState(true)
   const [rows, setRows] = useState([{ ...EMPTY_ROW }])
   const [itemsData, setItemsData] = useState([])
   const [submitting, setSubmitting] = useState(false)
@@ -34,8 +36,10 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
   }, [])
 
   const fetchCustomers = useCallback(async () => {
+    setCustomersLoading(true)
     const { data } = await customerService.getAll()
     if (data) setCustomers(data)
+    setCustomersLoading(false)
   }, [])
 
   useEffect(() => { fetchItems(); fetchCustomers() }, [fetchItems, fetchCustomers])
@@ -47,10 +51,12 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
       setCustomerName(cust.name)
       setCustomerPhone(cust.mobile || '')
       setCustomerEmail(cust.email || '')
+      setCustomerAddress(cust.address || '')
     } else {
       setCustomerName('')
       setCustomerPhone('')
       setCustomerEmail('')
+      setCustomerAddress('')
     }
   }
 
@@ -68,6 +74,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
         mobile: newCustForm.mobile.trim(),
         email: newCustForm.email.trim() || null,
         gst_number: newCustForm.gst_number.trim() || null,
+        address: newCustForm.address.trim() || null,
       })
       if (error) { setNewCustError(error.message); return }
       setCustomers(prev => [...prev, data])
@@ -75,8 +82,9 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
       setCustomerName(data.name)
       setCustomerPhone(data.mobile || '')
       setCustomerEmail(data.email || '')
+      setCustomerAddress(data.address || '')
       setShowNewCustomer(false)
-      setNewCustForm({ name: '', mobile: '', email: '', gst_number: '' })
+      setNewCustForm({ name: '', mobile: '', email: '', gst_number: '', address: '' })
     } catch (err) {
       setNewCustError(err.message || 'Failed to create customer')
     } finally {
@@ -149,8 +157,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     setSubmitting(true)
     try {
       const success = await onOrderCreated({
-        customer_name: customerName.trim(),
-        customer_contact: customerPhone.trim(),
+        customer_id: selectedCustomerId,
         notes: customerEmail.trim(),
         items: allItems,
       })
@@ -160,6 +167,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
         setCustomerName('')
         setCustomerPhone('')
         setCustomerEmail('')
+        setCustomerAddress('')
         setRows([{ ...EMPTY_ROW }])
         fetchItems()
       }
@@ -202,7 +210,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
                   onChange={handleCustomerSelect}
                   searchable
                   clearable
-                  nothingFoundMessage="No customers found"
+                  nothingFoundMessage={customersLoading ? 'Loading customers…' : 'No customers found'}
                   style={{ flex: 1, minWidth: 200 }}
                   required
                 />
@@ -216,6 +224,9 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
                   <TextInput label="Phone" value={customerPhone} readOnly variant="filled" />
                   <TextInput label="Email" value={customerEmail} readOnly variant="filled" />
                 </SimpleGrid>
+              )}
+              {selectedCustomerId && customerAddress && (
+                <TextInput label="Address" value={customerAddress} readOnly variant="filled" />
               )}
             </Stack>
           </Card>
@@ -255,6 +266,12 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
                   placeholder="GST number (optional)"
                   value={newCustForm.gst_number}
                   onChange={e => setNewCustForm(p => ({ ...p, gst_number: e.target.value }))}
+                />
+                <TextInput
+                  label="Address"
+                  placeholder="Address (optional)"
+                  value={newCustForm.address}
+                  onChange={e => setNewCustForm(p => ({ ...p, address: e.target.value }))}
                 />
                 <Divider />
                 <Group justify="flex-end">
