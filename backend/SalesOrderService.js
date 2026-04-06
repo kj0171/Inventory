@@ -29,6 +29,8 @@ export class SalesOrderService {
       .select(ORDER_SELECT)
       .order('created_at', { ascending: false })
 
+    if (error) console.error('[SalesOrderService.getAll]', error.message)
+
     return { data: (data || []).map(mapOrderFromDb), error }
   }
 
@@ -37,8 +39,7 @@ export class SalesOrderService {
     const { data: header, error: headerError } = await supabase
       .from(TABLES.SALES_ORDERS)
       .insert({
-        customer_name: order.customer_name,
-        customer_contact: order.customer_contact || null,
+        customer_id: order.customer_id,
         notes: order.notes || null,
         status: 'pending',
       })

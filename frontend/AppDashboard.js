@@ -6,7 +6,7 @@ import { ActionIcon, Badge, Box, Center, Loader, SegmentedControl, Stack, Text }
 import { useMediaQuery } from '@mantine/hooks'
 import Sidebar from './shared/Sidebar'
 import { useAuth, ROLES } from './shared/auth'
-import { salesOrderService, inventoryItemService, authService } from '../backend'
+import { salesOrderService, inventoryItemService, authService, customerService } from '../backend'
 import InventoryDashboard from './inventory/InventoryDashboard'
 import SalesOrderDashboard from './sales/SalesOrderDashboard'
 import DispatchDashboard from './dispatch/DispatchDashboard'
@@ -29,6 +29,7 @@ export default function AppDashboard() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [salesOrders, setSalesOrders] = useState([])
   const [loadingOrders, setLoadingOrders] = useState(true)
+  const [customersMap, setCustomersMap] = useState({})
 
   // Cart state — persists across tab switches
   const [cartItems, setCartItems] = useState([])
@@ -38,11 +39,19 @@ export default function AppDashboard() {
 
   const fetchOrders = useCallback(async () => {
     setLoadingOrders(true)
-    const { data, error } = await salesOrderService.getAll()
-    if (!error && data) {
-      setSalesOrders(data)
-    } else if (error) {
-      console.error('Error fetching sales orders:', error)
+    const [ordersRes, custRes] = await Promise.all([
+      salesOrderService.getAll(),
+      customerService.getAll(),
+    ])
+    if (!custRes.error && custRes.data) {
+      const map = {}
+      custRes.data.forEach(c => { map[c.id] = c })
+      setCustomersMap(map)
+    }
+    if (!ordersRes.error && ordersRes.data) {
+      setSalesOrders(ordersRes.data)
+    } else if (ordersRes.error) {
+      console.error('Error fetching sales orders:', ordersRes.error)
     }
     setLoadingOrders(false)
   }, [])
@@ -181,8 +190,7 @@ export default function AppDashboard() {
     }
 
     const { data: order, error: createError } = await salesOrderService.create({
-      customer_name: customerInfo.customer_name,
-      customer_contact: customerInfo.customer_contact,
+      customer_id: customerInfo.customer_id,
       notes: customerInfo.notes,
       items: cartItems.map(c => ({
         item_id: c.item_id,
@@ -361,6 +369,7 @@ export default function AppDashboard() {
         {activeSection === 'orders' && orderSubTab === 'sales' && (
           <SalesOrderDashboard
             orders={salesOrders}
+            customersMap={customersMap}
             loading={loadingOrders}
             onApprove={handleApprove}
             onReject={handleReject}
@@ -387,6 +396,7 @@ export default function AppDashboard() {
         {activeSection === 'dispatch' && dispatchSubTab === 'dispatch' && (
           <DispatchDashboard
             orders={dispatchOrders}
+            customersMap={customersMap}
             loading={loadingOrders}
             onDispatch={handleDispatch}
           />
