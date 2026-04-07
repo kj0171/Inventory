@@ -2,14 +2,14 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { Center, Loader } from '@mantine/core'
-import { inventoryItemService } from '../../backend'
+import { inventoryItemService, inventoryUnitService } from '../../backend'
 import StatsGrid from './StatsGrid'
 import Filters from './Filters'
 import InventoryTable from './InventoryTable'
-import UnitDetailPanel from './UnitDetailPanel'
+import BarcodeDrawer from '../shared/BarcodeDrawer'
 import { TRACKING_ENABLED } from '../shared/trackingConfig'
 
-export default function InventoryDashboard({ cartItems, onAddToCart }) {
+export default function InventoryDashboard() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
@@ -27,6 +27,10 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
     categories: 0,
     lowStock: 0
   })
+
+  // Barcode drawer state
+  const [drawerItem, setDrawerItem] = useState(null)
+  const [drawerBarcodes, setDrawerBarcodes] = useState([])
 
   useEffect(() => {
     fetchData()
@@ -120,8 +124,30 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
     })
   }
 
-  function handleInlineCart(item, qty) {
-    onAddToCart(item, qty)
+  async function fetchBarcodes(inventoryId) {
+    const { data } = await inventoryUnitService.getByInventoryId(inventoryId)
+    setDrawerBarcodes((data || []).map(u => ({ ...u, barcode: u.identifier })))
+  }
+
+  function handleRowClick(row) {
+    setDrawerItem(row)
+    fetchBarcodes(row.id)
+  }
+
+  async function handleUpdateBarcode(unitId, newValue) {
+    const { error } = await inventoryUnitService.update(unitId, { identifier: newValue })
+    if (!error && drawerItem) fetchBarcodes(drawerItem.id)
+  }
+
+  async function handleDeleteBarcode(unitId) {
+    const { error } = await inventoryUnitService.delete(unitId)
+    if (!error && drawerItem) fetchBarcodes(drawerItem.id)
+  }
+
+  async function handleAddBarcode(identifier) {
+    if (!drawerItem) return
+    const { error } = await inventoryUnitService.create([{ inventory_id: drawerItem.id, identifier }])
+    if (!error) fetchBarcodes(drawerItem.id)
   }
 
   function exportData() {
@@ -172,15 +198,25 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
       <InventoryTable
         filteredData={filteredData}
         data={data}
-        onAddToCart={handleInlineCart}
-        cartItems={cartItems}
         sortBy={filters.sortBy}
         sortOrder={filters.sortOrder}
         onSort={handleSort}
         onExport={exportData}
+        onRowClick={TRACKING_ENABLED ? handleRowClick : undefined}
       />
 
-      {TRACKING_ENABLED && <UnitDetailPanel />}
+      {TRACKING_ENABLED && (
+        <BarcodeDrawer
+          opened={!!drawerItem}
+          onClose={() => { setDrawerItem(null); setDrawerBarcodes([]) }}
+          title={drawerItem?.name || 'Barcodes'}
+          barcodes={drawerBarcodes}
+          onUpdate={handleUpdateBarcode}
+          onDelete={handleDeleteBarcode}
+          onAdd={handleAddBarcode}
+          badgeLabel="registered"
+        />
+      )}
     </>
   )
 }

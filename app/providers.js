@@ -28,6 +28,11 @@ const theme = createTheme({
         root: { textTransform: 'none' },
       },
     },
+    SegmentedControl: {
+      defaultProps: {
+        color: 'blue',
+      },
+    },
   },
 })
 

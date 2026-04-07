@@ -2,64 +2,84 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ActionIcon, Badge, Box, Center, Loader, SegmentedControl, Stack, Text } from '@mantine/core'
+import { ActionIcon, Alert, Box, Center, Loader, Paper, SegmentedControl, Stack, Text } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import Sidebar from './shared/Sidebar'
 import { useAuth, ROLES } from './shared/auth'
-import { salesOrderService, inventoryItemService, authService, customerService } from '../backend'
+import { salesOrderService, inventoryItemService, authService, customerService, supplierService, purchaseOrderService } from '../backend'
 import InventoryDashboard from './inventory/InventoryDashboard'
 import SalesOrderDashboard from './sales/SalesOrderDashboard'
 import DispatchDashboard from './dispatch/DispatchDashboard'
-import ReceiptBarcodeRegistration from './dispatch/ReceiptBarcodeRegistration'
+import RegistrationDashboard from './dispatch/RegistrationDashboard'
 import TeamManagement from './team/TeamManagement'
-import CartDrawer from './inventory/CartDrawer'
 import AddStockForm from './inventory/AddStockForm'
 import CreateSalesOrderForm from './sales/CreateSalesOrderForm'
 import CustomerManagement from './customer/CustomerManagement'
 import SupplierManagement from './supplier/SupplierManagement'
+import PurchaseOrderDashboard from './purchase/PurchaseOrderDashboard'
 import { TRACKING_ENABLED } from './shared/trackingConfig'
 
 export default function AppDashboard() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const [activeSection, setActiveSection] = useState('inventory')
-  const [orderSubTab, setOrderSubTab] = useState('createorder')
-  const [inventorySubTab, setInventorySubTab] = useState('view')
+  const [activeSection, setActiveSection] = useState('dashboard')
+  const [dashboardSubTab, setDashboardSubTab] = useState('sales')
+  const [inventorySubTab, setInventorySubTab] = useState('purchaseorder')
   const [dispatchSubTab, setDispatchSubTab] = useState('registration')
+  const [contactsSubTab, setContactsSubTab] = useState('customers')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [salesOrders, setSalesOrders] = useState([])
   const [loadingOrders, setLoadingOrders] = useState(true)
   const [customersMap, setCustomersMap] = useState({})
+  const [purchaseOrders, setPurchaseOrders] = useState([])
+  const [loadingPOs, setLoadingPOs] = useState(true)
+  const [suppliersMap, setSuppliersMap] = useState({})
 
-  // Cart state — persists across tab switches
-  const [cartItems, setCartItems] = useState([])
-  const [cartOpen, setCartOpen] = useState(false)
   // Increment to force InventoryDashboard remount after order submit
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0)
 
   const fetchOrders = useCallback(async () => {
     setLoadingOrders(true)
-    const [ordersRes, custRes] = await Promise.all([
+    setLoadingPOs(true)
+    const [ordersRes, custRes, poRes, suppRes] = await Promise.all([
       salesOrderService.getAll(),
       customerService.getAll(),
+      purchaseOrderService.getAll(),
+      supplierService.getAll(),
     ])
     if (!custRes.error && custRes.data) {
       const map = {}
       custRes.data.forEach(c => { map[c.id] = c })
       setCustomersMap(map)
     }
+    if (!suppRes.error && suppRes.data) {
+      const map = {}
+      suppRes.data.forEach(s => { map[s.id] = s })
+      setSuppliersMap(map)
+    }
     if (!ordersRes.error && ordersRes.data) {
       setSalesOrders(ordersRes.data)
     } else if (ordersRes.error) {
       console.error('Error fetching sales orders:', ordersRes.error)
     }
+    if (!poRes.error && poRes.data) {
+      setPurchaseOrders(poRes.data)
+    } else if (poRes.error) {
+      console.error('Error fetching purchase orders:', poRes.error)
+    }
     setLoadingOrders(false)
+    setLoadingPOs(false)
   }, [])
 
   useEffect(() => {
     if (user) fetchOrders()
   }, [fetchOrders, user])
+
+  // Re-fetch data when switching to sections that need fresh data
+  useEffect(() => {
+    if (user && (activeSection === 'dispatch' || activeSection === 'dashboard')) fetchOrders()
+  }, [activeSection])
 
   // Redirect to sign-in if not authenticated
   useEffect(() => {
@@ -86,36 +106,6 @@ export default function AppDashboard() {
   }
 
   if (!user) return null
-
-  // ---- Cart handlers ----
-
-  function handleAddToCart(item, quantity) {
-    setCartItems(prev => {
-      const existing = prev.find(c => c.item_id === item.id)
-      if (existing) {
-        return prev.map(c =>
-          c.item_id === item.id ? { ...c, quantity } : c
-        )
-      }
-      return [...prev, {
-        item_id: item.id,
-        itemName: item.name || 'Unknown',
-        itemCategory: item.item_category || '',
-        quantity,
-        maxAvailable: (item.quantity || 0) - (item.blocked_qty || 0),
-      }]
-    })
-  }
-
-  function handleRemoveFromCart(itemId) {
-    setCartItems(prev => prev.filter(c => c.item_id !== itemId))
-  }
-
-  function handleUpdateCartQty(itemId, quantity) {
-    setCartItems(prev =>
-      prev.map(c => c.item_id === itemId ? { ...c, quantity } : c)
-    )
-  }
 
   // ---- Create order from form ----
 
@@ -159,63 +149,6 @@ export default function AppDashboard() {
     }
 
     setSalesOrders(prev => [order, ...prev])
-    setInventoryRefreshKey(prev => prev + 1)
-    return true
-  }
-
-  // ---- Order submit from cart (validate → create → block) ----
-
-  async function handleSubmitOrder(customerInfo) {
-    const { data: items } = await inventoryItemService.getAll()
-    if (!items) {
-      alert('Failed to validate stock. Please try again.')
-      return false
-    }
-
-    const errors = []
-    for (const cartItem of cartItems) {
-      const item = items.find(i => i.id === cartItem.item_id)
-      if (!item) {
-        errors.push(`${cartItem.itemName}: item not found`)
-        continue
-      }
-      const available = (item.quantity || 0) - (item.blocked_qty || 0)
-      if (cartItem.quantity > available) {
-        errors.push(`${cartItem.itemName}: requested ${cartItem.quantity}, only ${available} available`)
-      }
-    }
-
-    if (errors.length > 0) {
-      alert('Order validation failed:\n\n' + errors.join('\n'))
-      return false
-    }
-
-    const { data: order, error: createError } = await salesOrderService.create({
-      customer_id: customerInfo.customer_id,
-      notes: customerInfo.notes,
-      items: cartItems.map(c => ({
-        item_id: c.item_id,
-        quantity: c.quantity,
-      })),
-    })
-
-    if (createError || !order) {
-      alert('Failed to create order. Please try again.')
-      console.error('Create order error:', createError)
-      return false
-    }
-
-    for (const cartItem of cartItems) {
-      const item = items.find(i => i.id === cartItem.item_id)
-      if (item) {
-        const newBlocked = (item.blocked_qty || 0) + cartItem.quantity
-        await inventoryItemService.updateBlockedQty(item.id, newBlocked)
-      }
-    }
-
-    setSalesOrders(prev => [order, ...prev])
-    setCartItems([])
-    setCartOpen(false)
     setInventoryRefreshKey(prev => prev + 1)
     return true
   }
@@ -275,6 +208,23 @@ export default function AppDashboard() {
 
   const dispatchOrders = salesOrders.filter(o => o.status === 'approved' || o.status === 'dispatched')
 
+  async function handleMarkPOComplete(poId) {
+    const { data, error } = await purchaseOrderService.updateStatus(poId, 'registered')
+    if (error) { alert('Failed to mark PO complete.'); return }
+    setPurchaseOrders(prev => prev.map(o => o.id === poId ? data : o))
+  }
+
+  async function handleMarkPOCompleted(poId) {
+    const { data, error } = await purchaseOrderService.updateStatus(poId, 'completed')
+    if (error) { alert('Failed to mark PO completed.'); return }
+    setPurchaseOrders(prev => prev.map(o => o.id === poId ? data : o))
+  }
+
+  async function handleRevertPOPending(poId) {
+    const { data, error } = await purchaseOrderService.updateStatus(poId, 'pending')
+    if (error) { alert('Failed to revert PO to pending.'); return }
+    setPurchaseOrders(prev => prev.map(o => o.id === poId ? data : o))
+  }
 
   return (
     <Box style={{ display: 'flex', minHeight: '100vh', overflow: 'hidden', width: '100%' }}>
@@ -286,8 +236,6 @@ export default function AppDashboard() {
         mobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
         onSignOut={handleSignOut}
-        cartCount={cartItems.length}
-        onCartToggle={() => setCartOpen(!cartOpen)}
       />
 
       <Box
@@ -313,61 +261,60 @@ export default function AppDashboard() {
           </ActionIcon>
         )}
 
+        {/* Dashboard sub-tabs */}
+        {activeSection === 'dashboard' && (
+          <SegmentedControl
+            value={dashboardSubTab}
+            onChange={setDashboardSubTab}
+            data={[
+              { value: 'sales', label: 'Sales Dashboard' },
+              { value: 'purchase', label: 'Purchase Dashboard' },
+            ]}
+            mb="md"
+          />
+        )}
+
         {/* Inventory sub-tabs */}
         {activeSection === 'inventory' && (
           <SegmentedControl
             value={inventorySubTab}
             onChange={setInventorySubTab}
             data={[
+              ...(user.profile?.role === ROLES.ADMIN ? [{ value: 'purchaseorder', label: 'Purchase Order' }] : []),
+              { value: 'salesorder', label: 'Sales Order' },
               { value: 'view', label: 'Stock View' },
-              ...(user.profile?.role === ROLES.ADMIN ? [{ value: 'addstock', label: 'Add Stock' }] : []),
             ]}
             mb="md"
           />
         )}
 
-        {activeSection === 'orders' && (
-          <SegmentedControl
-            value={orderSubTab}
-            onChange={setOrderSubTab}
-            data={[
-              { value: 'createorder', label: 'Create Order' },
-              { value: 'sales', label: 'Sales Orders' },
-            ]}
-            mb="md"
-          />
-        )}
-
-        {/* Dispatch sub-tabs */}
         {activeSection === 'dispatch' && (
           <SegmentedControl
             value={dispatchSubTab}
             onChange={setDispatchSubTab}
             data={[
-              { value: 'registration', label: TRACKING_ENABLED ? 'Registration' : '🔒 Registration' },
+              { value: 'registration', label: 'Registration' },
               { value: 'dispatch', label: 'Dispatch' },
             ]}
             mb="md"
           />
         )}
 
-        {activeSection === 'inventory' && inventorySubTab === 'view' && (
-          <InventoryDashboard
-            key={inventoryRefreshKey}
-            cartItems={cartItems}
-            onAddToCart={handleAddToCart}
+        {/* Contacts sub-tabs */}
+        {activeSection === 'contacts' && (
+          <SegmentedControl
+            value={contactsSubTab}
+            onChange={setContactsSubTab}
+            data={[
+              { value: 'customers', label: 'Customers' },
+              { value: 'suppliers', label: 'Suppliers' },
+            ]}
+            mb="md"
           />
         )}
 
-        {activeSection === 'inventory' && inventorySubTab === 'addstock' && (
-          <AddStockForm onStockAdded={() => setInventoryRefreshKey(prev => prev + 1)} />
-        )}
-
-        {activeSection === 'orders' && orderSubTab === 'createorder' && (
-          <CreateSalesOrderForm onOrderCreated={handleCreateOrder} />
-        )}
-
-        {activeSection === 'orders' && orderSubTab === 'sales' && (
+        {/* === Dashboard === */}
+        {activeSection === 'dashboard' && dashboardSubTab === 'sales' && (
           <SalesOrderDashboard
             orders={salesOrders}
             customersMap={customersMap}
@@ -377,21 +324,41 @@ export default function AppDashboard() {
           />
         )}
 
-        {activeSection === 'dispatch' && dispatchSubTab === 'registration' && (
-          TRACKING_ENABLED ? (
-            <ReceiptBarcodeRegistration />
-          ) : (
-            <Center py={80}>
-              <Stack align="center" gap="md" maw={400}>
-                <Text style={{ fontSize: 48 }}>🔒</Text>
-                <Text fw={700} size="xl" ta="center">Item-Level Tracking</Text>
-                <Text c="dimmed" ta="center" size="sm">
-                  Enable item-level tracking to unlock barcode registration, unit scanning, and per-unit traceability across your inventory and dispatch workflows.
-                </Text>
-                <Badge variant="light" color="blue" size="lg">Contact your admin to enable</Badge>
-              </Stack>
-            </Center>
-          )
+        {activeSection === 'dashboard' && dashboardSubTab === 'purchase' && (
+          <PurchaseOrderDashboard
+            orders={purchaseOrders}
+            suppliersMap={suppliersMap}
+            loading={loadingPOs}
+            onMarkComplete={handleMarkPOComplete}
+            onMarkCompleted={handleMarkPOCompleted}
+            onRevertPending={handleRevertPOPending}
+          />
+        )}
+
+        {/* === Dispatch === */}
+        {activeSection === 'dispatch' && dispatchSubTab === 'registration' && TRACKING_ENABLED && (
+          <RegistrationDashboard
+            orders={purchaseOrders}
+            suppliersMap={suppliersMap}
+            loading={loadingPOs}
+            onMarkComplete={handleMarkPOComplete}
+          />
+        )}
+
+        {activeSection === 'dispatch' && dispatchSubTab === 'registration' && !TRACKING_ENABLED && (
+          <Center py={80}>
+            <Paper shadow="sm" radius="md" p="xl" withBorder maw={480} ta="center">
+              <Text size="2.5rem" mb="md">🔒</Text>
+              <Text fw={700} size="lg" mb="xs">Item-Level Tracking Disabled</Text>
+              <Text size="sm" c="dimmed" mb="md">
+                The Registration module requires item-level tracking to be enabled.
+                Barcode scanning and unit registration are not available in the current configuration.
+              </Text>
+              <Alert variant="light" color="blue" radius="md">
+                Please contact your administrator to enable the tracking module.
+              </Alert>
+            </Paper>
+          </Center>
         )}
 
         {activeSection === 'dispatch' && dispatchSubTab === 'dispatch' && (
@@ -403,26 +370,33 @@ export default function AppDashboard() {
           />
         )}
 
-        {activeSection === 'customers' && (
+        {/* === Inventory === */}
+        {activeSection === 'inventory' && inventorySubTab === 'view' && (
+          <InventoryDashboard
+            key={inventoryRefreshKey}
+          />
+        )}
+
+        {activeSection === 'inventory' && inventorySubTab === 'purchaseorder' && (
+          <AddStockForm onStockAdded={() => { setInventoryRefreshKey(prev => prev + 1); fetchOrders() }} />
+        )}
+
+        {activeSection === 'inventory' && inventorySubTab === 'salesorder' && (
+          <CreateSalesOrderForm onOrderCreated={handleCreateOrder} />
+        )}
+
+        {/* === Contacts === */}
+        {activeSection === 'contacts' && contactsSubTab === 'customers' && (
           <CustomerManagement />
         )}
 
-        {activeSection === 'suppliers' && (
+        {activeSection === 'contacts' && contactsSubTab === 'suppliers' && (
           <SupplierManagement />
         )}
 
         {activeSection === 'team' && (
           <TeamManagement />
         )}
-
-        <CartDrawer
-          cartItems={cartItems}
-          isOpen={cartOpen}
-          onToggle={() => setCartOpen(!cartOpen)}
-          onUpdateQty={handleUpdateCartQty}
-          onRemoveItem={handleRemoveFromCart}
-          onSubmitOrder={handleSubmitOrder}
-        />
       </Box>
     </Box>
   )
