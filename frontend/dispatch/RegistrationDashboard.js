@@ -75,10 +75,6 @@ export default function RegistrationDashboard({
 
   function getOrderStatus(order) {
     if (order.status === 'registered' || order.status === 'completed') return 'complete'
-    const { total, registered } = getOrderRegProgress(order)
-    if (total === 0) return 'pending'
-    if (registered >= total) return 'complete'
-    if (registered > 0) return 'partial'
     return 'pending'
   }
 
@@ -170,7 +166,7 @@ export default function RegistrationDashboard({
 
   return (
     <Stack gap="md">
-      <SimpleGrid cols={{ base: 2, sm: 4 }}>
+      <SimpleGrid cols={{ base: 3, sm: 4 }}>
         {statCards.map(s => (
           <Paper
             key={s.filter}
@@ -190,20 +186,21 @@ export default function RegistrationDashboard({
         ))}
       </SimpleGrid>
 
-      <Group gap="sm">
+      <Stack gap="xs">
         <TextInput
           size="sm"
           placeholder="Search items, supplier…"
           value={searchFilter}
           onChange={e => setSearchFilter(e.currentTarget.value)}
-          style={{ flex: 1 }}
         />
-        <TextInput size="sm" type="date" placeholder="From" value={dateFrom} onChange={e => setDateFrom(e.currentTarget.value)} w={140} />
-        <TextInput size="sm" type="date" placeholder="To" value={dateTo} onChange={e => setDateTo(e.currentTarget.value)} w={140} />
-        {(dateFrom || dateTo || searchFilter) && (
-          <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setDateFrom(''); setDateTo('') }}>Clear</Button>
-        )}
-      </Group>
+        <Group gap="sm">
+          <TextInput size="sm" type="date" placeholder="From" value={dateFrom} onChange={e => setDateFrom(e.currentTarget.value)} style={{ flex: 1 }} />
+          <TextInput size="sm" type="date" placeholder="To" value={dateTo} onChange={e => setDateTo(e.currentTarget.value)} style={{ flex: 1 }} />
+          {(dateFrom || dateTo || searchFilter) && (
+            <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setDateFrom(''); setDateTo('') }}>Clear</Button>
+          )}
+        </Group>
+      </Stack>
 
       <Paper p="md" radius="md" withBorder>
         {loading ? (
@@ -257,21 +254,18 @@ export default function RegistrationDashboard({
                   </SimpleGrid>
 
                   <Collapse expanded={isExpanded}>
-                    <Stack gap="sm" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
+                    <Stack gap="md" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
                       {items.map(li => {
                         const lineUnits = getLineItemUnits(order.id, li.inventory_id)
                         const registered = lineUnits.length
                         const remaining = Math.max(0, li.quantity - registered)
                         return (
-                          <div key={li.id}>
-                            <Group justify="space-between">
-                              <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
-                              <Group gap={4}>
+                          <Stack key={li.id} gap={6}>
+                            <Group justify="space-between" wrap="nowrap">
+                              <Text size="sm" fw={500} style={{ flex: 1, minWidth: 0 }}>{li.inventory_items?.name || 'Unknown'}</Text>
+                              <Group gap={4} wrap="nowrap">
                                 <Badge variant="light" size="sm">{registered}/{li.quantity}</Badge>
                                 {remaining > 0 && <Badge color="orange" variant="light" size="sm">{remaining} left</Badge>}
-                                <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: li.inventory_id, name: li.inventory_items?.name || 'Unknown', poId: order.id }) }}>
-                                  View
-                                </Button>
                               </Group>
                             </Group>
                             {remaining > 0 && status !== 'complete' ? (
@@ -282,9 +276,14 @@ export default function RegistrationDashboard({
                                 autoFocus={false}
                               />
                             ) : (
-                              <Badge color="green" variant="light" size="sm" mt={4}>✓ All registered</Badge>
+                              <Badge color="green" variant="light" size="sm">✓ All registered</Badge>
                             )}
-                          </div>
+                            <Group gap={4}>
+                              <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: li.inventory_id, name: li.inventory_items?.name || 'Unknown', poId: order.id }) }}>
+                                View
+                              </Button>
+                            </Group>
+                          </Stack>
                         )
                       })}
                       {status !== 'complete' && (
