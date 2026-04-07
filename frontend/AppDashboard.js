@@ -78,6 +78,11 @@ export default function AppDashboard() {
     if (user) fetchOrders()
   }, [fetchOrders, user])
 
+  // Re-fetch POs when switching to dispatch section so data is fresh
+  useEffect(() => {
+    if (user && activeSection === 'dispatch') fetchOrders()
+  }, [activeSection])
+
   // Redirect to sign-in if not authenticated
   useEffect(() => {
     if (!authLoading && !user) {
@@ -293,8 +298,20 @@ export default function AppDashboard() {
   const dispatchOrders = salesOrders.filter(o => o.status === 'approved' || o.status === 'dispatched')
 
   async function handleMarkPOComplete(poId) {
-    const { data, error } = await purchaseOrderService.updateStatus(poId, 'received')
+    const { data, error } = await purchaseOrderService.updateStatus(poId, 'registered')
     if (error) { alert('Failed to mark PO complete.'); return }
+    setPurchaseOrders(prev => prev.map(o => o.id === poId ? data : o))
+  }
+
+  async function handleMarkPOCompleted(poId) {
+    const { data, error } = await purchaseOrderService.updateStatus(poId, 'completed')
+    if (error) { alert('Failed to mark PO completed.'); return }
+    setPurchaseOrders(prev => prev.map(o => o.id === poId ? data : o))
+  }
+
+  async function handleRevertPOPending(poId) {
+    const { data, error } = await purchaseOrderService.updateStatus(poId, 'pending')
+    if (error) { alert('Failed to revert PO to pending.'); return }
     setPurchaseOrders(prev => prev.map(o => o.id === poId ? data : o))
   }
 
@@ -424,6 +441,8 @@ export default function AppDashboard() {
             suppliersMap={suppliersMap}
             loading={loadingPOs}
             onMarkComplete={handleMarkPOComplete}
+            onMarkCompleted={handleMarkPOCompleted}
+            onRevertPending={handleRevertPOPending}
           />
         )}
 

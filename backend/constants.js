@@ -8,4 +8,5 @@ export const TABLES = {
   CUSTOMERS: 'customers',
   SUPPLIERS: 'supplier',
   PROFILES: 'profiles',
+  INVENTORY_UNITS: 'inventory_units',
 }

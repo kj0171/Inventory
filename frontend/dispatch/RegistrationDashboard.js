@@ -1,55 +1,15 @@
 'use client'
 
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react'
 import {
-  ActionIcon, Badge, Button, Card, Center, Collapse, Drawer, Group, Loader,
+  Badge, Button, Card, Center, Collapse, Group, Loader,
   Paper, SimpleGrid, Stack, Table, Text, TextInput
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { formatDate } from '../shared/utils'
 import ScannerInput from '../shared/ScannerInput'
-
-// In-memory barcode store keyed by poItemId → array of { id, barcode, created_at }
-const _barcodeStore = {}
-
-function getBarcodes(poItemId) {
-  return _barcodeStore[poItemId] || []
-}
-
-function addBarcodes(poItemId, barcodes) {
-  const existing = _barcodeStore[poItemId] || []
-  const newEntries = barcodes.map((b, i) => ({
-    id: `${poItemId}-${Date.now()}-${i}`,
-    barcode: b,
-    created_at: new Date().toISOString(),
-  }))
-  _barcodeStore[poItemId] = [...existing, ...newEntries]
-  return newEntries
-}
-
-function updateBarcode(poItemId, barcodeId, newBarcode) {
-  const list = _barcodeStore[poItemId] || []
-  _barcodeStore[poItemId] = list.map(b => b.id === barcodeId ? { ...b, barcode: newBarcode } : b)
-}
-
-function deleteBarcode(poItemId, barcodeId) {
-  const list = _barcodeStore[poItemId] || []
-  _barcodeStore[poItemId] = list.filter(b => b.id !== barcodeId)
-}
-
-function getBarcodesForItem(inventoryId, orders) {
-  const all = []
-  for (const order of orders) {
-    for (const li of (order.purchase_order_items || [])) {
-      if (li.inventory_id === inventoryId) {
-        for (const b of getBarcodes(li.id)) {
-          all.push({ ...b, poItemId: li.id })
-        }
-      }
-    }
-  }
-  return all
-}
+import BarcodeDrawer from '../shared/BarcodeDrawer'
+import { inventoryUnitService } from '../../backend'
 
 export default function RegistrationDashboard({
   orders, suppliersMap = {}, loading, onMarkComplete,
@@ -59,35 +19,62 @@ export default function RegistrationDashboard({
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
-  const [regVersion, setRegVersion] = useState(0)
+  // Counts per PO for progress badges (loaded in bulk on mount)
+  const [countsMap, setCountsMap] = useState({})
+  // Full unit rows per PO (lazy loaded on expand)
+  const [unitsMap, setUnitsMap] = useState({})
   const [barcodeItem, setBarcodeItem] = useState(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
+
+  // Fetch full unit rows for a PO (called on expand)
+  const fetchUnitsForPO = useCallback(async (poId) => {
+    const { data, error } = await inventoryUnitService.getByPOId(poId)
+    if (!error) {
+      setUnitsMap(prev => ({ ...prev, [poId]: data }))
+      setCountsMap(prev => ({ ...prev, [poId]: (data || []).length }))
+    }
+  }, [])
+
+  // Fetch counts for all POs in one query on mount
+  useEffect(() => {
+    async function loadCounts() {
+      const poIds = orders.map(o => o.id)
+      if (poIds.length === 0) return
+      const { data } = await inventoryUnitService.getCountsByPOIds(poIds)
+      if (data) setCountsMap(data)
+    }
+    loadCounts()
+  }, [orders])
 
   function handleViewBarcodes(item) {
     setBarcodeItem(item)
   }
 
   function toggleExpand(orderId) {
-    setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
+    setExpandedOrders(prev => {
+      const next = { ...prev, [orderId]: !prev[orderId] }
+      // Fetch units when expanding
+      if (next[orderId] && !unitsMap[orderId]) {
+        fetchUnitsForPO(orderId)
+      }
+      return next
+    })
   }
 
-  function getLineItemReg(poItemId) {
-    const barcodes = getBarcodes(poItemId)
-    return { registered: barcodes.length }
+  // Get units for a specific PO line item from state
+  function getLineItemUnits(poId, inventoryId) {
+    return (unitsMap[poId] || []).filter(u => u.inventory_id === inventoryId)
   }
 
   function getOrderRegProgress(order) {
     const items = order.purchase_order_items || []
-    let total = 0, registered = 0
-    for (const li of items) {
-      total += li.quantity
-      registered += getBarcodes(li.id).length
-    }
-    return { total, registered }
+    let total = 0
+    for (const li of items) total += li.quantity
+    return { total, registered: countsMap[order.id] || 0 }
   }
 
   function getOrderStatus(order) {
-    if (order.status === 'received') return 'complete'
+    if (order.status === 'registered' || order.status === 'received') return 'complete'
     const { total, registered } = getOrderRegProgress(order)
     if (total === 0) return 'pending'
     if (registered >= total) return 'complete'
@@ -95,9 +82,39 @@ export default function RegistrationDashboard({
     return 'pending'
   }
 
-  function handleRegisterBarcodes(inventoryId, poItemId, barcodes) {
-    addBarcodes(poItemId, barcodes)
-    setRegVersion(v => v + 1)
+  async function handleRegisterBarcodes(inventoryId, poId, barcodes) {
+    const units = barcodes.map(b => ({
+      inventory_id: inventoryId,
+      po_id: poId,
+      identifier: b,
+    }))
+    const { error } = await inventoryUnitService.create(units)
+    if (!error) {
+      fetchUnitsForPO(poId)
+    }
+  }
+
+  async function handleUpdateBarcode(unitId, newValue, poId) {
+    const { error } = await inventoryUnitService.update(unitId, { identifier: newValue })
+    if (!error) fetchUnitsForPO(poId)
+  }
+
+  async function handleDeleteBarcode(unitId, poId) {
+    const { error } = await inventoryUnitService.delete(unitId)
+    if (!error) fetchUnitsForPO(poId)
+  }
+
+  // Get all units for a given inventory_id across all loaded POs (for the drawer)
+  function getUnitsForInventoryItem(inventoryId) {
+    const all = []
+    for (const [poId, units] of Object.entries(unitsMap)) {
+      for (const u of units) {
+        if (u.inventory_id === inventoryId) {
+          all.push({ ...u, barcode: u.identifier, poId })
+        }
+      }
+    }
+    return all
   }
 
   const filteredOrders = useMemo(() => {
@@ -126,14 +143,14 @@ export default function RegistrationDashboard({
       }
       return true
     })
-  }, [orders, suppliersMap, statusFilter, searchFilter, dateFrom, dateTo, regVersion])
+  }, [orders, suppliersMap, statusFilter, searchFilter, dateFrom, dateTo, countsMap])
 
   const stats = useMemo(() => ({
     total: orders.length,
     pending: orders.filter(o => getOrderStatus(o) === 'pending').length,
     partial: orders.filter(o => getOrderStatus(o) === 'partial').length,
     complete: orders.filter(o => getOrderStatus(o) === 'complete').length,
-  }), [orders, regVersion])
+  }), [orders, countsMap])
 
   function renderItemsSummary(items) {
     if (!items || items.length === 0) return 'No items'
@@ -148,7 +165,6 @@ export default function RegistrationDashboard({
   const statCards = [
     { label: 'All POs', value: stats.total, color: 'blue', filter: 'all' },
     { label: 'Pending', value: stats.pending, color: 'orange', filter: 'pending' },
-    { label: 'Partial', value: stats.partial, color: 'yellow', filter: 'partial' },
     { label: 'Complete', value: stats.complete, color: 'green', filter: 'complete' },
   ]
 
@@ -243,25 +259,26 @@ export default function RegistrationDashboard({
                   <Collapse expanded={isExpanded}>
                     <Stack gap="sm" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
                       {items.map(li => {
-                        const reg = getLineItemReg(li.id)
-                        const remaining = Math.max(0, li.quantity - reg.registered)
+                        const lineUnits = getLineItemUnits(order.id, li.inventory_id)
+                        const registered = lineUnits.length
+                        const remaining = Math.max(0, li.quantity - registered)
                         return (
                           <div key={li.id}>
                             <Group justify="space-between">
                               <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
                               <Group gap={4}>
-                                <Badge variant="light" size="sm">{reg.registered}/{li.quantity}</Badge>
+                                <Badge variant="light" size="sm">{registered}/{li.quantity}</Badge>
                                 {remaining > 0 && <Badge color="orange" variant="light" size="sm">{remaining} left</Badge>}
-                                <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: li.inventory_id, name: li.inventory_items?.name || 'Unknown' }) }}>
+                                <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: li.inventory_id, name: li.inventory_items?.name || 'Unknown', poId: order.id }) }}>
                                   View
                                 </Button>
                               </Group>
                             </Group>
-                            {remaining > 0 ? (
+                            {remaining > 0 && status !== 'complete' ? (
                               <ScannerInput
                                 remaining={remaining}
-                                registered={reg.registered}
-                                onRegister={(barcodes) => handleRegisterBarcodes(li.inventory_id, li.id, barcodes)}
+                                registered={registered}
+                                onRegister={(barcodes) => handleRegisterBarcodes(li.inventory_id, order.id, barcodes)}
                                 autoFocus={false}
                               />
                             ) : (
@@ -270,9 +287,11 @@ export default function RegistrationDashboard({
                           </div>
                         )
                       })}
-                      <Button size="xs" color="blue" mt="xs" onClick={e => { e.stopPropagation(); onMarkComplete?.(order.id) }}>
-                        Mark Complete
-                      </Button>
+                      {status !== 'complete' && (
+                        <Button size="xs" color="blue" mt="xs" onClick={e => { e.stopPropagation(); onMarkComplete?.(order.id) }}>
+                          Mark Complete
+                        </Button>
+                      )}
                     </Stack>
                   </Collapse>
                 </Card>
@@ -322,14 +341,17 @@ export default function RegistrationDashboard({
                           <Text size="sm" c="dimmed">{formatDate(order.created_at)}</Text>
                         </Table.Td>
                         <Table.Td onClick={e => e.stopPropagation()}>
-                          <Button size="compact-xs" color="blue" onClick={() => onMarkComplete?.(order.id)}>
-                            Mark Complete
-                          </Button>
+                          {status !== 'complete' && (
+                            <Button size="compact-xs" color="blue" onClick={() => onMarkComplete?.(order.id)}>
+                              Mark Complete
+                            </Button>
+                          )}
                         </Table.Td>
                       </Table.Tr>
                       {isExpanded && items.map(li => {
-                        const reg = getLineItemReg(li.id)
-                        const remaining = Math.max(0, li.quantity - reg.registered)
+                        const lineUnits = getLineItemUnits(order.id, li.inventory_id)
+                        const registered = lineUnits.length
+                        const remaining = Math.max(0, li.quantity - registered)
                         return (
                           <Table.Tr key={li.id} style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
                             <Table.Td>
@@ -341,22 +363,22 @@ export default function RegistrationDashboard({
                               </Group>
                             </Table.Td>
                             <Table.Td>
-                              <Badge variant="light" size="sm">{li.quantity} units</Badge>
+                              <Badge variant="light" size="sm">{registered}/{li.quantity} registered</Badge>
                             </Table.Td>
                             <Table.Td>
-                              {remaining > 0 ? (
+                              {remaining > 0 && status !== 'complete' ? (
                                 <ScannerInput
                                   remaining={remaining}
-                                  registered={reg.registered}
-                                  onRegister={(barcodes) => handleRegisterBarcodes(li.inventory_id, li.id, barcodes)}
+                                  registered={registered}
+                                  onRegister={(barcodes) => handleRegisterBarcodes(li.inventory_id, order.id, barcodes)}
                                   autoFocus={false}
                                 />
                               ) : (
-                                <Badge color="green" variant="light" size="sm">✓ All {reg.registered} registered</Badge>
+                                <Badge color="green" variant="light" size="sm">✓ All {registered} registered</Badge>
                               )}
                             </Table.Td>
                             <Table.Td>
-                              <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: li.inventory_id, name: li.inventory_items?.name || 'Unknown' }) }}>
+                              <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: li.inventory_id, name: li.inventory_items?.name || 'Unknown', poId: order.id }) }}>
                                 View
                               </Button>
                             </Table.Td>
@@ -373,74 +395,21 @@ export default function RegistrationDashboard({
       </Paper>
 
       {/* Barcode Drawer */}
-      <Drawer opened={!!barcodeItem} onClose={() => setBarcodeItem(null)} title={barcodeItem?.name || 'Barcodes'} position="right" size="md">
-        {(() => {
-          const itemBarcodes = barcodeItem ? getBarcodesForItem(barcodeItem.id, orders) : []
-          return itemBarcodes.length === 0 ? (
-            <Text ta="center" c="dimmed" py="lg">No barcodes registered for this item yet.</Text>
-          ) : (
-            <>
-              <Group gap="xs" mb="md">
-                <Badge color="green" variant="light" size="sm">{itemBarcodes.length} registered</Badge>
-              </Group>
-              <Stack gap="xs">
-                {itemBarcodes.map(u => (
-                  <BarcodeRow
-                    key={u.id}
-                    entry={u}
-                    onUpdate={(newVal) => { updateBarcode(u.poItemId, u.id, newVal); setRegVersion(v => v + 1) }}
-                    onDelete={() => { deleteBarcode(u.poItemId, u.id); setRegVersion(v => v + 1) }}
-                  />
-                ))}
-              </Stack>
-            </>
-          )
-        })()}
-      </Drawer>
+      <BarcodeDrawer
+        opened={!!barcodeItem}
+        onClose={() => setBarcodeItem(null)}
+        title={barcodeItem?.name || 'Barcodes'}
+        barcodes={barcodeItem ? getUnitsForInventoryItem(barcodeItem.id) : []}
+        onUpdate={(unitId, newVal) => {
+          const unit = getUnitsForInventoryItem(barcodeItem.id).find(u => u.id === unitId)
+          if (unit) handleUpdateBarcode(unitId, newVal, unit.poId)
+        }}
+        onDelete={(unitId) => {
+          const unit = getUnitsForInventoryItem(barcodeItem.id).find(u => u.id === unitId)
+          if (unit) handleDeleteBarcode(unitId, unit.poId)
+        }}
+        badgeLabel="registered"
+      />
     </Stack>
-  )
-}
-
-function BarcodeRow({ entry, onUpdate, onDelete }) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(entry.barcode)
-
-  function handleSave() {
-    const trimmed = value.trim()
-    if (trimmed && trimmed !== entry.barcode) {
-      onUpdate(trimmed)
-    }
-    setEditing(false)
-  }
-
-  return (
-    <Group gap="xs" justify="space-between" wrap="nowrap" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)', paddingBottom: 6 }}>
-      {editing ? (
-        <TextInput
-          size="xs"
-          value={value}
-          onChange={e => setValue(e.currentTarget.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setValue(entry.barcode); setEditing(false) } }}
-          onBlur={handleSave}
-          autoFocus
-          style={{ flex: 1 }}
-        />
-      ) : (
-        <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setEditing(true)}>
-          <Text size="sm" fw={500}>{entry.barcode}</Text>
-          <Text size="xs" c="dimmed">{formatDate(entry.created_at)}</Text>
-        </div>
-      )}
-      <Group gap={4} wrap="nowrap">
-        {!editing && (
-          <ActionIcon size="sm" variant="subtle" color="blue" onClick={() => setEditing(true)}>
-            ✎
-          </ActionIcon>
-        )}
-        <ActionIcon size="sm" variant="subtle" color="red" onClick={onDelete}>
-          ✕
-        </ActionIcon>
-      </Group>
-    </Group>
   )
 }

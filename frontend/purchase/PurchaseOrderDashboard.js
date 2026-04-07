@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
 import {
   Badge, Button, Card, Center, Collapse, Group, Loader,
   Paper, SimpleGrid, Stack, Table, Text, TextInput
@@ -8,26 +8,74 @@ import {
 import { useMediaQuery } from '@mantine/hooks'
 import { useAuth, ROLES } from '../shared/auth'
 import { formatDate } from '../shared/utils'
+import { TRACKING_ENABLED } from '../shared/trackingConfig'
+import BarcodeDrawer from '../shared/BarcodeDrawer'
+import ConfirmModal from '../shared/ConfirmModal'
+import { inventoryUnitService } from '../../backend'
 
 const STATUS_COLOR = {
   pending: 'yellow',
-  received: 'green',
+  registered: 'blue',
+  completed: 'green',
 }
 
 export default function PurchaseOrderDashboard({
-  orders, suppliersMap = {}, loading, onMarkComplete,
+  orders, suppliersMap = {}, loading, onMarkComplete, onMarkCompleted, onRevertPending,
 }) {
   const { user } = useAuth()
   const isAdmin = user?.profile?.role === ROLES.ADMIN
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('pending')
   const [searchFilter, setSearchFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
+  const [unitsMap, setUnitsMap] = useState({})
+  const [countsMap, setCountsMap] = useState({})
+  const [drawerItem, setDrawerItem] = useState(null)
+  const [confirm, setConfirm] = useState({ opened: false, message: '', onConfirm: null })
   const isMobile = useMediaQuery('(max-width: 768px)')
 
+  // Fetch counts for all POs in one query on mount
+  useEffect(() => {
+    async function loadCounts() {
+      const poIds = orders.map(o => o.id)
+      if (poIds.length === 0) return
+      const { data } = await inventoryUnitService.getCountsByPOIds(poIds)
+      if (data) setCountsMap(data)
+    }
+    loadCounts()
+  }, [orders])
+
+  async function fetchUnitsForPO(poId) {
+    const { data, error } = await inventoryUnitService.getByPOId(poId)
+    if (!error) {
+      setUnitsMap(prev => ({ ...prev, [poId]: data }))
+      setCountsMap(prev => ({ ...prev, [poId]: (data || []).length }))
+    }
+  }
+
+  async function handleUpdateBarcode(unitId, newValue) {
+    const { error } = await inventoryUnitService.update(unitId, { identifier: newValue })
+    if (!error && drawerItem) fetchUnitsForPO(drawerItem.poId)
+  }
+
+  async function handleDeleteBarcode(unitId) {
+    const { error } = await inventoryUnitService.delete(unitId)
+    if (!error && drawerItem) fetchUnitsForPO(drawerItem.poId)
+  }
+
   function toggleExpand(orderId) {
-    setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
+    setExpandedOrders(prev => {
+      const next = { ...prev, [orderId]: !prev[orderId] }
+      if (TRACKING_ENABLED && next[orderId] && !unitsMap[orderId]) {
+        fetchUnitsForPO(orderId)
+      }
+      return next
+    })
+  }
+
+  function getLineItemUnits(poId, inventoryId) {
+    return (unitsMap[poId] || []).filter(u => u.inventory_id === inventoryId)
   }
 
   const filteredOrders = useMemo(() => {
@@ -61,7 +109,8 @@ export default function PurchaseOrderDashboard({
   const stats = useMemo(() => ({
     total: orders.length,
     pending: orders.filter(o => o.status === 'pending').length,
-    received: orders.filter(o => o.status === 'received').length,
+    registered: orders.filter(o => o.status === 'registered').length,
+    completed: orders.filter(o => o.status === 'completed').length,
   }), [orders])
 
   function formatCurrency(val) {
@@ -83,15 +132,30 @@ export default function PurchaseOrderDashboard({
     return (items || []).reduce((sum, li) => sum + (li.quantity * (li.price || 0)), 0)
   }
 
+  function handleMarkCompleted(order) {
+    const totalQty = getTotalQty(order.purchase_order_items)
+    const registeredCount = countsMap[order.id] || 0
+    if (registeredCount < totalQty) {
+      setConfirm({
+        opened: true,
+        message: `Only ${registeredCount} of ${totalQty} units have registered. Are you sure you want to mark this PO as completed?`,
+        onConfirm: () => onMarkCompleted?.(order.id),
+      })
+      return
+    }
+    onMarkCompleted?.(order.id)
+  }
+
   const statCards = [
     { label: 'All POs', value: stats.total, color: 'blue', filter: 'all' },
     { label: 'Pending', value: stats.pending, color: 'yellow', filter: 'pending' },
-    { label: 'Received', value: stats.received, color: 'green', filter: 'received' },
+    { label: 'Registered', value: stats.registered, color: 'blue', filter: 'registered' },
+    { label: 'Completed', value: stats.completed, color: 'green', filter: 'completed' },
   ]
 
   return (
     <Stack gap="md">
-      <SimpleGrid cols={{ base: 3, sm: 3 }}>
+      <SimpleGrid cols={{ base: 2, sm: 4 }}>
         {statCards.map(s => (
           <Paper
             key={s.filter}
@@ -184,6 +248,14 @@ export default function PurchaseOrderDashboard({
                               <Group gap="xs">
                                 <Badge variant="light" size="sm">{li.quantity} units</Badge>
                                 <Text size="xs" c="dimmed">{formatCurrency(li.price)}/unit</Text>
+                                {TRACKING_ENABLED && (() => {
+                                  const units = getLineItemUnits(order.id, li.inventory_id)
+                                  return units.length > 0 ? (
+                                    <Button size="compact-xs" variant="subtle" onClick={(e) => { e.stopPropagation(); setDrawerItem({ poId: order.id, inventoryId: li.inventory_id, name: li.inventory_items?.name || 'Unknown' }) }}>
+                                      View ({units.length})
+                                    </Button>
+                                  ) : null
+                                })()}
                               </Group>
                             </Group>
                           </div>
@@ -195,10 +267,26 @@ export default function PurchaseOrderDashboard({
                       {isAdmin && order.status === 'pending' && (
                         <Button
                           size="xs" variant="light" color="green" mt="xs"
-                          onClick={(e) => { e.stopPropagation(); onMarkComplete?.(order.id) }}
+                          onClick={(e) => { e.stopPropagation(); handleMarkCompleted(order) }}
                         >
                           Mark Complete
                         </Button>
+                      )}
+                      {isAdmin && order.status === 'registered' && (
+                        <Group gap="xs" mt="xs">
+                          <Button
+                            size="xs" variant="light" color="green"
+                            onClick={(e) => { e.stopPropagation(); handleMarkCompleted(order) }}
+                          >
+                            Mark Completed
+                          </Button>
+                          <Button
+                            size="xs" variant="light" color="orange"
+                            onClick={(e) => { e.stopPropagation(); onRevertPending?.(order.id) }}
+                          >
+                            Back to Pending
+                          </Button>
+                        </Group>
                       )}
                     </Stack>
                   </Collapse>
@@ -258,9 +346,19 @@ export default function PurchaseOrderDashboard({
                         {isAdmin && (
                           <Table.Td onClick={(e) => e.stopPropagation()}>
                             {order.status === 'pending' && (
-                              <Button size="xs" variant="light" color="green" onClick={() => onMarkComplete?.(order.id)}>
+                              <Button size="xs" variant="light" color="green" onClick={() => handleMarkCompleted(order)}>
                                 Mark Complete
                               </Button>
+                            )}
+                            {order.status === 'registered' && (
+                              <Group gap="xs">
+                                <Button size="xs" variant="light" color="green" onClick={() => handleMarkCompleted(order)}>
+                                  Mark Completed
+                                </Button>
+                                <Button size="xs" variant="light" color="orange" onClick={() => onRevertPending?.(order.id)}>
+                                  Back to Pending
+                                </Button>
+                              </Group>
                             )}
                           </Table.Td>
                         )}
@@ -280,7 +378,17 @@ export default function PurchaseOrderDashboard({
                               <Badge variant="light" size="sm">{li.quantity} units</Badge>
                             </Table.Td>
                             <Table.Td colSpan={isAdmin ? 4 : 3}>
-                              <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{formatCurrency(li.price)}/unit</Text>
+                              <Group gap="xs">
+                                <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{formatCurrency(li.price)}/unit</Text>
+                                {TRACKING_ENABLED && (() => {
+                                  const units = getLineItemUnits(order.id, li.inventory_id)
+                                  return units.length > 0 ? (
+                                    <Button size="compact-xs" variant="subtle" onClick={() => setDrawerItem({ poId: order.id, inventoryId: li.inventory_id, name: li.inventory_items?.name || 'Unknown' })}>
+                                      View ({units.length})
+                                    </Button>
+                                  ) : null
+                                })()}
+                              </Group>
                             </Table.Td>
                           </Table.Tr>
                         )
@@ -293,6 +401,27 @@ export default function PurchaseOrderDashboard({
           </Table.ScrollContainer>
         )}
       </Paper>
+
+      {TRACKING_ENABLED && <BarcodeDrawer
+        opened={!!drawerItem}
+        onClose={() => setDrawerItem(null)}
+        title={drawerItem?.name || 'Barcodes'}
+        barcodes={drawerItem ? getLineItemUnits(drawerItem.poId, drawerItem.inventoryId).map(u => ({ ...u, barcode: u.identifier })) : []}
+        onUpdate={handleUpdateBarcode}
+        onDelete={handleDeleteBarcode}
+        badgeLabel="registered"
+      />}
+
+      <ConfirmModal
+        opened={confirm.opened}
+        onClose={() => setConfirm({ opened: false, message: '', onConfirm: null })}
+        onConfirm={confirm.onConfirm || (() => {})}
+        title="Incomplete Registration"
+        message={confirm.message}
+        confirmLabel="Yes, Complete"
+        confirmColor="orange"
+        cancelLabel="Cancel"
+      />
     </Stack>
   )
 }
