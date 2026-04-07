@@ -14,7 +14,7 @@ import { inventoryUnitService } from '../../backend'
 export default function RegistrationDashboard({
   orders, suppliersMap = {}, loading, onMarkComplete,
 }) {
-  const [statusFilter, setStatusFilter] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('pending')
   const [searchFilter, setSearchFilter] = useState('')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')

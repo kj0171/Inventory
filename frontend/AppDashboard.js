@@ -22,10 +22,11 @@ import PurchaseOrderDashboard from './purchase/PurchaseOrderDashboard'
 export default function AppDashboard() {
   const router = useRouter()
   const { user, loading: authLoading } = useAuth()
-  const [activeSection, setActiveSection] = useState('inventory')
-  const [orderSubTab, setOrderSubTab] = useState('createorder')
-  const [inventorySubTab, setInventorySubTab] = useState('view')
+  const [activeSection, setActiveSection] = useState('dashboard')
+  const [dashboardSubTab, setDashboardSubTab] = useState('sales')
+  const [inventorySubTab, setInventorySubTab] = useState('purchaseorder')
   const [dispatchSubTab, setDispatchSubTab] = useState('registration')
+  const [contactsSubTab, setContactsSubTab] = useState('customers')
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [salesOrders, setSalesOrders] = useState([])
@@ -78,9 +79,9 @@ export default function AppDashboard() {
     if (user) fetchOrders()
   }, [fetchOrders, user])
 
-  // Re-fetch POs when switching to dispatch section so data is fresh
+  // Re-fetch data when switching to sections that need fresh data
   useEffect(() => {
-    if (user && activeSection === 'dispatch') fetchOrders()
+    if (user && (activeSection === 'dispatch' || activeSection === 'dashboard')) fetchOrders()
   }, [activeSection])
 
   // Redirect to sign-in if not authenticated
@@ -352,33 +353,33 @@ export default function AppDashboard() {
           </ActionIcon>
         )}
 
+        {/* Dashboard sub-tabs */}
+        {activeSection === 'dashboard' && (
+          <SegmentedControl
+            value={dashboardSubTab}
+            onChange={setDashboardSubTab}
+            data={[
+              { value: 'sales', label: 'Sales Dashboard' },
+              { value: 'purchase', label: 'Purchase Dashboard' },
+            ]}
+            mb="md"
+          />
+        )}
+
         {/* Inventory sub-tabs */}
         {activeSection === 'inventory' && (
           <SegmentedControl
             value={inventorySubTab}
             onChange={setInventorySubTab}
             data={[
+              ...(user.profile?.role === ROLES.ADMIN ? [{ value: 'purchaseorder', label: 'Purchase Order' }] : []),
+              { value: 'salesorder', label: 'Sales Order' },
               { value: 'view', label: 'Stock View' },
-              ...(user.profile?.role === ROLES.ADMIN ? [{ value: 'addstock', label: 'Add Stock' }] : []),
             ]}
             mb="md"
           />
         )}
 
-        {activeSection === 'orders' && (
-          <SegmentedControl
-            value={orderSubTab}
-            onChange={setOrderSubTab}
-            data={[
-              { value: 'createorder', label: 'Create Order' },
-              { value: 'sales', label: 'Sales Orders' },
-              { value: 'purchaseorders', label: 'Purchase Orders' },
-            ]}
-            mb="md"
-          />
-        )}
-
-        {/* Dispatch sub-tabs */}
         {activeSection === 'dispatch' && (
           <SegmentedControl
             value={dispatchSubTab}
@@ -391,6 +392,42 @@ export default function AppDashboard() {
           />
         )}
 
+        {/* Contacts sub-tabs */}
+        {activeSection === 'contacts' && (
+          <SegmentedControl
+            value={contactsSubTab}
+            onChange={setContactsSubTab}
+            data={[
+              { value: 'customers', label: 'Customers' },
+              { value: 'suppliers', label: 'Suppliers' },
+            ]}
+            mb="md"
+          />
+        )}
+
+        {/* === Dashboard === */}
+        {activeSection === 'dashboard' && dashboardSubTab === 'sales' && (
+          <SalesOrderDashboard
+            orders={salesOrders}
+            customersMap={customersMap}
+            loading={loadingOrders}
+            onApprove={handleApprove}
+            onReject={handleReject}
+          />
+        )}
+
+        {activeSection === 'dashboard' && dashboardSubTab === 'purchase' && (
+          <PurchaseOrderDashboard
+            orders={purchaseOrders}
+            suppliersMap={suppliersMap}
+            loading={loadingPOs}
+            onMarkComplete={handleMarkPOComplete}
+            onMarkCompleted={handleMarkPOCompleted}
+            onRevertPending={handleRevertPOPending}
+          />
+        )}
+
+        {/* === Dispatch === */}
         {activeSection === 'dispatch' && dispatchSubTab === 'registration' && (
           <RegistrationDashboard
             orders={purchaseOrders}
@@ -409,6 +446,7 @@ export default function AppDashboard() {
           />
         )}
 
+        {/* === Inventory === */}
         {activeSection === 'inventory' && inventorySubTab === 'view' && (
           <InventoryDashboard
             key={inventoryRefreshKey}
@@ -417,40 +455,20 @@ export default function AppDashboard() {
           />
         )}
 
-        {activeSection === 'inventory' && inventorySubTab === 'addstock' && (
+        {activeSection === 'inventory' && inventorySubTab === 'purchaseorder' && (
           <AddStockForm onStockAdded={() => { setInventoryRefreshKey(prev => prev + 1); fetchOrders() }} />
         )}
 
-        {activeSection === 'orders' && orderSubTab === 'createorder' && (
+        {activeSection === 'inventory' && inventorySubTab === 'salesorder' && (
           <CreateSalesOrderForm onOrderCreated={handleCreateOrder} />
         )}
 
-        {activeSection === 'orders' && orderSubTab === 'sales' && (
-          <SalesOrderDashboard
-            orders={salesOrders}
-            customersMap={customersMap}
-            loading={loadingOrders}
-            onApprove={handleApprove}
-            onReject={handleReject}
-          />
-        )}
-
-        {activeSection === 'orders' && orderSubTab === 'purchaseorders' && (
-          <PurchaseOrderDashboard
-            orders={purchaseOrders}
-            suppliersMap={suppliersMap}
-            loading={loadingPOs}
-            onMarkComplete={handleMarkPOComplete}
-            onMarkCompleted={handleMarkPOCompleted}
-            onRevertPending={handleRevertPOPending}
-          />
-        )}
-
-        {activeSection === 'customers' && (
+        {/* === Contacts === */}
+        {activeSection === 'contacts' && contactsSubTab === 'customers' && (
           <CustomerManagement />
         )}
 
-        {activeSection === 'suppliers' && (
+        {activeSection === 'contacts' && contactsSubTab === 'suppliers' && (
           <SupplierManagement />
         )}
 

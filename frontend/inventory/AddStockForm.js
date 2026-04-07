@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Select, TextInput, NumberInput, Button, Paper, Group, Text, Stack, Alert, ActionIcon, Badge, SimpleGrid, Box, Textarea, Autocomplete } from '@mantine/core'
+import { Select, TextInput, NumberInput, Button, Paper, Group, Text, Stack, Alert, ActionIcon, Badge, SimpleGrid, Box, Autocomplete, Modal, Divider } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { inventoryItemService, supplierService, purchaseOrderService } from '../../backend'
 
@@ -13,7 +13,10 @@ export default function AddStockForm({ onStockAdded }) {
   const [suppliers, setSuppliers] = useState([])
   const [suppliersLoading, setSuppliersLoading] = useState(true)
   const [selectedSupplierId, setSelectedSupplierId] = useState('')
-  const [notes, setNotes] = useState('')
+  const [showNewSupplier, setShowNewSupplier] = useState(false)
+  const [newSupForm, setNewSupForm] = useState({ name: '', firm_name: '', mobile: '', email: '', gst_number: '', address: '' })
+  const [newSupSubmitting, setNewSupSubmitting] = useState(false)
+  const [newSupError, setNewSupError] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
@@ -31,6 +34,37 @@ export default function AddStockForm({ onStockAdded }) {
   }, [])
 
   useEffect(() => { fetchItems(); fetchSuppliers() }, [fetchItems, fetchSuppliers])
+
+  const isMobile = useMediaQuery('(max-width: 768px)')
+
+  async function handleCreateNewSupplier(e) {
+    e.preventDefault()
+    if (!newSupForm.name.trim() || !newSupForm.mobile.trim()) {
+      setNewSupError('Name and mobile are required')
+      return
+    }
+    setNewSupSubmitting(true)
+    setNewSupError('')
+    try {
+      const { data, error } = await supplierService.create({
+        name: newSupForm.name.trim(),
+        firm_name: newSupForm.firm_name.trim() || null,
+        mobile: newSupForm.mobile.trim(),
+        email: newSupForm.email.trim() || null,
+        gst_number: newSupForm.gst_number.trim() || null,
+        address: newSupForm.address.trim() || null,
+      })
+      if (error) { setNewSupError(error.message); return }
+      setSuppliers(prev => [...prev, data])
+      setSelectedSupplierId(data.id)
+      setShowNewSupplier(false)
+      setNewSupForm({ name: '', firm_name: '', mobile: '', email: '', gst_number: '', address: '' })
+    } catch (err) {
+      setNewSupError(err.message || 'Failed to create supplier')
+    } finally {
+      setNewSupSubmitting(false)
+    }
+  }
 
   const categories = [...new Set(items.map(i => i.item_category).filter(Boolean))].sort()
   const itemGroups = [...new Set(items.map(i => i.item_group).filter(Boolean))].sort()
@@ -126,7 +160,6 @@ export default function AddStockForm({ onStockAdded }) {
       // Create PO
       const { data: po, error: poError } = await purchaseOrderService.create({
         supplier_id: selectedSupplierId,
-        notes: notes.trim() || null,
         items: resolvedItems,
       })
       if (poError || !po) {
@@ -148,7 +181,6 @@ export default function AddStockForm({ onStockAdded }) {
       setSuccessMsg(`Successfully added ${rows.length} stock entr${rows.length === 1 ? 'y' : 'ies'}`)
       setRows([{ ...EMPTY_ROW }])
       setSelectedSupplierId('')
-      setNotes('')
       fetchItems()
       if (onStockAdded) onStockAdded()
     } catch (err) {
@@ -160,11 +192,6 @@ export default function AddStockForm({ onStockAdded }) {
 
   return (
     <Stack gap="md">
-      <Group gap="xs">
-        <Text fw={600} size="lg">Add Stock</Text>
-        <Text size="sm" c="dimmed">{rows.length} item{rows.length !== 1 ? 's' : ''}</Text>
-      </Group>
-
       {successMsg && <Alert color="green" variant="light" withCloseButton onClose={() => setSuccessMsg('')}>{successMsg}</Alert>}
       {errorMsg && <Alert color="red" variant="light" withCloseButton onClose={() => setErrorMsg('')}>{errorMsg}</Alert>}
 
@@ -173,19 +200,26 @@ export default function AddStockForm({ onStockAdded }) {
           {/* Supplier selection */}
           <Paper shadow="xs" radius="md" p="md" withBorder>
             <Stack gap="sm">
-              <Text fw={600} size="sm">Supplier</Text>
-              <Select
-                placeholder={suppliersLoading ? 'Loading suppliers…' : 'Select supplier'}
-                data={suppliers.map(s => ({
-                  value: s.id,
-                  label: s.firm_name ? `${s.name} — ${s.firm_name}` : s.name,
-                }))}
-                value={selectedSupplierId}
-                onChange={setSelectedSupplierId}
-                searchable
-                clearable
-                disabled={suppliersLoading}
-              />
+              <Group gap="sm" align="flex-end" grow={!isMobile} wrap="wrap">
+                <Select
+                  label="Select Supplier"
+                  placeholder={suppliersLoading ? 'Loading suppliers…' : 'Search supplier...'}
+                  data={suppliers.map(s => ({
+                    value: s.id,
+                    label: s.firm_name ? `${s.name} — ${s.firm_name}` : s.name,
+                  }))}
+                  value={selectedSupplierId}
+                  onChange={setSelectedSupplierId}
+                  searchable
+                  clearable
+                  disabled={suppliersLoading}
+                  style={{ flex: 1, minWidth: 200 }}
+                  required
+                />
+                <Button variant="light" onClick={() => setShowNewSupplier(true)} mt={isMobile ? 0 : 0}>
+                  + New Supplier
+                </Button>
+              </Group>
               {selectedSupplierId && (() => {
                 const sup = suppliers.find(s => s.id === selectedSupplierId)
                 return sup ? (
@@ -199,10 +233,67 @@ export default function AddStockForm({ onStockAdded }) {
             </Stack>
           </Paper>
 
+          {/* New Supplier Modal */}
+          <Modal opened={showNewSupplier} onClose={() => setShowNewSupplier(false)} title="New Supplier" centered size="md">
+            <form onSubmit={handleCreateNewSupplier}>
+              <Stack gap="sm">
+                {newSupError && <Alert color="red" variant="light">{newSupError}</Alert>}
+                <TextInput
+                  label="Name"
+                  placeholder="Contact person name"
+                  value={newSupForm.name}
+                  onChange={e => setNewSupForm(p => ({ ...p, name: e.target.value }))}
+                  required
+                  autoFocus
+                />
+                <TextInput
+                  label="Firm Name"
+                  placeholder="Firm / company name (optional)"
+                  value={newSupForm.firm_name}
+                  onChange={e => setNewSupForm(p => ({ ...p, firm_name: e.target.value }))}
+                />
+                <SimpleGrid cols={{ base: 1, sm: 2 }}>
+                  <TextInput
+                    label="Mobile"
+                    placeholder="Mobile number"
+                    type="tel"
+                    value={newSupForm.mobile}
+                    onChange={e => setNewSupForm(p => ({ ...p, mobile: e.target.value }))}
+                    required
+                  />
+                  <TextInput
+                    label="Email"
+                    placeholder="Email (optional)"
+                    type="email"
+                    value={newSupForm.email}
+                    onChange={e => setNewSupForm(p => ({ ...p, email: e.target.value }))}
+                  />
+                </SimpleGrid>
+                <TextInput
+                  label="GST Number"
+                  placeholder="GST number (optional)"
+                  value={newSupForm.gst_number}
+                  onChange={e => setNewSupForm(p => ({ ...p, gst_number: e.target.value }))}
+                />
+                <TextInput
+                  label="Address"
+                  placeholder="Address (optional)"
+                  value={newSupForm.address}
+                  onChange={e => setNewSupForm(p => ({ ...p, address: e.target.value }))}
+                />
+                <Divider />
+                <Group justify="flex-end">
+                  <Button variant="default" onClick={() => setShowNewSupplier(false)}>Cancel</Button>
+                  <Button type="submit" loading={newSupSubmitting}>Add Supplier</Button>
+                </Group>
+              </Stack>
+            </form>
+          </Modal>
+
           {rows.map((row, index) => (
             <Paper key={index} shadow="xs" radius="md" p="md" withBorder>
               <Group justify="space-between" mb="sm">
-                <Badge variant="light" color="blue" size="sm">#{index + 1}</Badge>
+                <Badge variant="light" color="blue" size="lg">Item #{index + 1}</Badge>
                 {rows.length > 1 && (
                   <ActionIcon variant="subtle" color="red" size="sm" onClick={() => removeRow(index)}>✕</ActionIcon>
                 )}
@@ -285,20 +376,10 @@ export default function AddStockForm({ onStockAdded }) {
           ))}
 
           <Group justify="space-between">
-            <Button variant="default" onClick={addRow}>+ Add Row</Button>
-            <Button type="submit" loading={submitting}>
-              {submitting ? 'Adding...' : `Add ${rows.length} Item${rows.length !== 1 ? 's' : ''}`}
-            </Button>
+            <Button variant="light" onClick={addRow}>+ Add Item</Button>
+            <Button type="submit" loading={submitting}>Create Order</Button>
           </Group>
 
-          <Textarea
-            label="Notes (optional)"
-            placeholder="Any notes for this purchase…"
-            value={notes}
-            onChange={(e) => setNotes(e.currentTarget.value)}
-            autosize
-            minRows={2}
-          />
         </Stack>
       </form>
     </Stack>
