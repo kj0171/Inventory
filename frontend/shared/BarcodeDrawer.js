@@ -2,12 +2,12 @@
 
 import { useState } from 'react'
 import {
-  ActionIcon, Badge, Drawer, Group, Stack, Text, TextInput
+  ActionIcon, Badge, Divider, Drawer, Group, Stack, Text, TextInput
 } from '@mantine/core'
 import { formatDate } from './utils'
 
 /**
- * Shared BarcodeDrawer — opened from any flow to view/edit/delete barcodes for an item.
+ * Shared BarcodeDrawer — opened from any flow to view/edit/delete/add barcodes for an item.
  *
  * Props:
  *   opened      – boolean
@@ -16,6 +16,7 @@ import { formatDate } from './utils'
  *   barcodes    – array of { id, barcode, created_at }
  *   onUpdate    – (barcodeId, newValue) => void   (omit for read-only)
  *   onDelete    – (barcodeId) => void              (omit for read-only)
+ *   onAdd       – (identifier: string) => void     (omit to hide add input)
  *   badgeLabel  – optional label for the count badge, e.g. "registered" / "scanned"
  */
 
@@ -76,10 +77,33 @@ function BarcodeRow({ entry, onUpdate, onDelete }) {
 }
 
 export default function BarcodeDrawer({
-  opened, onClose, title, barcodes = [], onUpdate, onDelete, badgeLabel = 'registered',
+  opened, onClose, title, barcodes = [], onUpdate, onDelete, onAdd, badgeLabel = 'registered',
 }) {
+  const [addInput, setAddInput] = useState('')
+
+  function handleAdd() {
+    const val = addInput.trim()
+    if (!val || !onAdd) return
+    onAdd(val)
+    setAddInput('')
+  }
+
   return (
     <Drawer opened={opened} onClose={onClose} title={title || 'Barcodes'} position="right" size="md">
+      {onAdd && (
+        <>
+          <TextInput
+            size="sm"
+            placeholder="Scan or type identifier + Enter"
+            value={addInput}
+            onChange={e => setAddInput(e.currentTarget.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAdd() } }}
+            styles={{ input: { fontFamily: 'monospace' } }}
+            mb="sm"
+          />
+          <Divider mb="sm" />
+        </>
+      )}
       {barcodes.length === 0 ? (
         <Text ta="center" c="dimmed" py="lg">No barcodes {badgeLabel} for this item yet.</Text>
       ) : (

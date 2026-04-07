@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { Paper, Group, Text, Button, Badge, Table, Box, ActionIcon, Card, SimpleGrid, Stack, Pagination } from '@mantine/core'
 import { getCategoryColor, getQuantityColor } from '../shared/utils'
-import { openUnitDrawer } from './UnitDetailPanel'
 import { TRACKING_ENABLED } from '../shared/trackingConfig'
 
 function QuantityBadge({ qty }) {
@@ -53,7 +52,7 @@ function SortHeader({ label, field, sortBy, sortOrder, onSort }) {
 }
 
 /* ==================== Desktop Table ==================== */
-function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort }) {
+function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort, onRowClick }) {
   return (
     <Box visibleFrom="sm" style={{ overflowX: 'auto' }}>
       <Table striped highlightOnHover verticalSpacing="sm">
@@ -77,7 +76,7 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort 
                 key={row.id}
                 bg={isLow ? 'red.0' : undefined}
                 style={{ cursor: TRACKING_ENABLED ? 'pointer' : 'default' }}
-                onClick={() => TRACKING_ENABLED && openUnitDrawer(row)}
+                onClick={() => TRACKING_ENABLED && onRowClick?.(row)}
               >
                 <Table.Td>
                   <Text fw={600} size="sm">{row.name || 'Unknown'}</Text>
@@ -104,7 +103,7 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort 
 }
 
 /* ==================== Mobile Cards ==================== */
-function MobileView({ rows, getCartQty, onAddToCart }) {
+function MobileView({ rows, getCartQty, onAddToCart, onRowClick }) {
   return (
     <Box hiddenFrom="sm">
       <Stack gap="xs">
@@ -120,7 +119,7 @@ function MobileView({ rows, getCartQty, onAddToCart }) {
               withBorder
               bg={isLow ? 'red.0' : undefined}
               style={{ cursor: TRACKING_ENABLED ? 'pointer' : 'default' }}
-              onClick={() => TRACKING_ENABLED && openUnitDrawer(row)}
+              onClick={() => TRACKING_ENABLED && onRowClick?.(row)}
             >
               <Group justify="space-between" mb="xs" wrap="nowrap">
                 <Box style={{ minWidth: 0 }}>
@@ -164,7 +163,7 @@ const PAGE_SIZE = 50
 
 /* ==================== Main ==================== */
 export default function InventoryTable({
-  filteredData, data, onAddToCart, cartItems, sortBy, sortOrder, onSort, onExport
+  filteredData, data, onAddToCart, cartItems, sortBy, sortOrder, onSort, onExport, onRowClick
 }) {
   const [page, setPage] = useState(1)
   const totalPages = Math.ceil(filteredData.length / PAGE_SIZE)
@@ -207,11 +206,13 @@ export default function InventoryTable({
             sortBy={sortBy}
             sortOrder={sortOrder}
             onSort={onSort}
+            onRowClick={onRowClick}
           />
           <MobileView
             rows={paginatedData}
             getCartQty={getCartQty}
             onAddToCart={onAddToCart}
+            onRowClick={onRowClick}
           />
           {totalPages > 1 && (
             <Group justify="space-between" mt="md" px="xs">
