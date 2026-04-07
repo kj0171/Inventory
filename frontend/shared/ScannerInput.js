@@ -31,6 +31,7 @@ export default function ScannerInput({ remaining, registered = 0, onRegister, au
   function handleKeyDown(e) {
     if (e.key === 'Enter') {
       e.preventDefault()
+      e.stopPropagation()
       addBarcode()
     }
   }
@@ -45,22 +46,28 @@ export default function ScannerInput({ remaining, registered = 0, onRegister, au
     }
     setInput('')
     onRegister([val])
-    // Re-focus for next scan
-    if (inputRef.current) inputRef.current.focus()
+    // Re-focus after React re-render completes
+    setTimeout(() => {
+      if (inputRef.current) inputRef.current.focus()
+    }, 50)
   }
 
   return (
     <Stack gap="xs" onClick={e => e.stopPropagation()}>
-      <TextInput
-        ref={inputRef}
-        size="sm"
-        placeholder={remaining > 0 ? `Scan or type barcode + Enter (${remaining} remaining)` : 'All units scanned'}
-        value={input}
-        onChange={e => setInput(e.currentTarget.value)}
-        onKeyDown={handleKeyDown}
-        disabled={remaining <= 0}
-        styles={{ input: { fontFamily: 'monospace' } }}
-      />
+      <form onSubmit={e => { e.preventDefault(); addBarcode() }}>
+        <TextInput
+          ref={inputRef}
+          size="sm"
+          placeholder={remaining > 0 ? `Scan or type barcode + Enter (${remaining} remaining)` : 'All units scanned'}
+          value={input}
+          onChange={e => setInput(e.currentTarget.value)}
+          onKeyDown={handleKeyDown}
+          disabled={remaining <= 0}
+          styles={{ input: { fontFamily: 'monospace' } }}
+          inputMode="text"
+          enterKeyHint="done"
+        />
+      </form>
 
       {error && <Text size="xs" c="red">{error}</Text>}
     </Stack>
