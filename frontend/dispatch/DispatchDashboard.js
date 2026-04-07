@@ -8,6 +8,7 @@ import {
 import { useMediaQuery } from '@mantine/hooks'
 import { formatDate } from '../shared/utils'
 import ScannerInput from '../shared/ScannerInput'
+import { TRACKING_ENABLED } from '../shared/trackingConfig'
 
 // In-memory barcode store keyed by soItemId → array of { id, barcode, created_at }
 const _dispatchBarcodeStore = {}
@@ -210,15 +211,21 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                       <Text size="sm">{renderItemsSummary(items)}</Text>
                     </div>
                     <div>
-                      <Text size="xs" c="dimmed">Scanned</Text>
-                      <Text size="sm" c={progress.scanned >= progress.total ? 'green' : 'orange'}>
-                        {progress.scanned}/{progress.total}
-                      </Text>
+                      <Text size="xs" c="dimmed">{TRACKING_ENABLED ? 'Scanned' : 'Total Qty'}</Text>
+                      {TRACKING_ENABLED ? (
+                        <Text size="sm" c={progress.scanned >= progress.total ? 'green' : 'orange'}>
+                          {progress.scanned}/{progress.total}
+                        </Text>
+                      ) : (
+                        <Text size="sm">{getTotalQty(items)} units</Text>
+                      )}
                     </div>
+                    {!TRACKING_ENABLED && (
                     <div>
-                      <Text size="xs" c="dimmed">Total Qty</Text>
-                      <Text size="sm">{getTotalQty(items)} units</Text>
+                      <Text size="xs" c="dimmed">Items</Text>
+                      <Text size="sm">{items.length} {items.length === 1 ? 'item' : 'items'}</Text>
                     </div>
+                    )}
                     <div>
                       <Text size="xs" c="dimmed">Approved On</Text>
                       <Text size="sm">{formatDate(order.updated_at)}</Text>
@@ -236,24 +243,32 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                             <Group justify="space-between">
                               <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
                               <Group gap={4}>
-                                <Badge variant="light" size="sm">{scanned}/{li.quantity}</Badge>
-                                {remaining > 0 && <Badge color="orange" variant="light" size="sm">{remaining} left</Badge>}
-                                <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }) }}>
-                                  View
-                                </Button>
+                                {TRACKING_ENABLED ? (
+                                  <>
+                                    <Badge variant="light" size="sm">{scanned}/{li.quantity}</Badge>
+                                    {remaining > 0 && <Badge color="orange" variant="light" size="sm">{remaining} left</Badge>}
+                                    <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }) }}>
+                                      View
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Badge variant="light" size="sm">{li.quantity} units</Badge>
+                                )}
                               </Group>
                             </Group>
-                            {order.status === 'dispatched' ? (
-                              <Badge color="green" variant="light" size="sm" mt={4}>✓ Dispatched</Badge>
-                            ) : remaining > 0 ? (
-                              <ScannerInput
-                                remaining={remaining}
-                                registered={scanned}
-                                onRegister={(barcodes) => handleScanBarcodes(itemId, li.id, barcodes)}
-                                autoFocus={false}
-                              />
-                            ) : (
-                              <Badge color="green" variant="light" size="sm" mt={4}>✓ All scanned</Badge>
+                            {TRACKING_ENABLED && (
+                              order.status === 'dispatched' ? (
+                                <Badge color="green" variant="light" size="sm" mt={4}>✓ Dispatched</Badge>
+                              ) : remaining > 0 ? (
+                                <ScannerInput
+                                  remaining={remaining}
+                                  registered={scanned}
+                                  onRegister={(barcodes) => handleScanBarcodes(itemId, li.id, barcodes)}
+                                  autoFocus={false}
+                                />
+                              ) : (
+                                <Badge color="green" variant="light" size="sm" mt={4}>✓ All scanned</Badge>
+                              )
                             )}
                           </div>
                         )
@@ -276,7 +291,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                 <Table.Tr>
                   <Table.Th>Customer</Table.Th>
                   <Table.Th>Items</Table.Th>
-                  <Table.Th>Progress</Table.Th>
+                  <Table.Th>Quantity</Table.Th>
                   <Table.Th>Approved On</Table.Th>
                   <Table.Th />
                 </Table.Tr>
@@ -307,9 +322,15 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                           </div>
                         </Table.Td>
                         <Table.Td>
-                          <Badge variant="light" color={progress.scanned >= progress.total ? 'green' : 'orange'}>
-                            {progress.scanned}/{progress.total} scanned
-                          </Badge>
+                          {TRACKING_ENABLED ? (
+                            <Badge variant="light" color={progress.scanned >= progress.total ? 'green' : 'orange'}>
+                              {progress.scanned}/{progress.total} scanned
+                            </Badge>
+                          ) : (
+                            <Badge variant="light" color="blue">
+                              {getTotalQty(items)} units
+                            </Badge>
+                          )}
                         </Table.Td>
                         <Table.Td>
                           <Text size="sm" c="dimmed">{formatDate(order.updated_at)}</Text>
@@ -343,23 +364,29 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                               <Badge variant="light" size="sm">{li.quantity} units</Badge>
                             </Table.Td>
                             <Table.Td>
-                              {order.status === 'dispatched' ? (
-                                <Badge color="green" variant="light" size="sm">✓ Dispatched</Badge>
-                              ) : remaining > 0 ? (
-                                <ScannerInput
-                                  remaining={remaining}
-                                  registered={scanned}
-                                  onRegister={(barcodes) => handleScanBarcodes(itemId, li.id, barcodes)}
-                                  autoFocus={false}
-                                />
+                              {TRACKING_ENABLED ? (
+                                order.status === 'dispatched' ? (
+                                  <Badge color="green" variant="light" size="sm">✓ Dispatched</Badge>
+                                ) : remaining > 0 ? (
+                                  <ScannerInput
+                                    remaining={remaining}
+                                    registered={scanned}
+                                    onRegister={(barcodes) => handleScanBarcodes(itemId, li.id, barcodes)}
+                                    autoFocus={false}
+                                  />
+                                ) : (
+                                  <Badge color="green" variant="light" size="sm">✓ All {scanned} scanned</Badge>
+                                )
                               ) : (
-                                <Badge color="green" variant="light" size="sm">✓ All {scanned} scanned</Badge>
+                                <Badge variant="light" color="gray" size="sm">{li.inventory_items?.item_group || 'N/A'}</Badge>
                               )}
                             </Table.Td>
                             <Table.Td>
-                              <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }) }}>
-                                View
-                              </Button>
+                              {TRACKING_ENABLED && (
+                                <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }) }}>
+                                  View
+                                </Button>
+                              )}
                             </Table.Td>
                             <Table.Td />
                           </Table.Tr>
@@ -375,6 +402,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
       </Paper>
 
       {/* Barcode Drawer */}
+      {TRACKING_ENABLED && (
       <Drawer opened={!!barcodeItem} onClose={() => setBarcodeItem(null)} title={barcodeItem?.name || 'Barcodes'} position="right" size="md">
         {(() => {
           const itemBarcodes = barcodeItem ? getBarcodesForItem(barcodeItem.id, orders) : []
@@ -399,6 +427,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
           )
         })()}
       </Drawer>
+      )}
     </Stack>
   )
 }

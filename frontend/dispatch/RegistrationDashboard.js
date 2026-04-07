@@ -74,7 +74,7 @@ export default function RegistrationDashboard({
   }
 
   function getOrderStatus(order) {
-    if (order.status === 'registered' || order.status === 'received') return 'complete'
+    if (order.status === 'registered' || order.status === 'completed') return 'complete'
     const { total, registered } = getOrderRegProgress(order)
     if (total === 0) return 'pending'
     if (registered >= total) return 'complete'

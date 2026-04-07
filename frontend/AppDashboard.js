@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ActionIcon, Box, Center, Loader, SegmentedControl, Stack, Text } from '@mantine/core'
+import { ActionIcon, Alert, Box, Center, Loader, Paper, SegmentedControl, Stack, Text } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import Sidebar from './shared/Sidebar'
 import { useAuth, ROLES } from './shared/auth'
@@ -17,6 +17,7 @@ import CreateSalesOrderForm from './sales/CreateSalesOrderForm'
 import CustomerManagement from './customer/CustomerManagement'
 import SupplierManagement from './supplier/SupplierManagement'
 import PurchaseOrderDashboard from './purchase/PurchaseOrderDashboard'
+import { TRACKING_ENABLED } from './shared/trackingConfig'
 
 export default function AppDashboard() {
   const router = useRouter()
@@ -335,13 +336,29 @@ export default function AppDashboard() {
         )}
 
         {/* === Dispatch === */}
-        {activeSection === 'dispatch' && dispatchSubTab === 'registration' && (
+        {activeSection === 'dispatch' && dispatchSubTab === 'registration' && TRACKING_ENABLED && (
           <RegistrationDashboard
             orders={purchaseOrders}
             suppliersMap={suppliersMap}
             loading={loadingPOs}
             onMarkComplete={handleMarkPOComplete}
           />
+        )}
+
+        {activeSection === 'dispatch' && dispatchSubTab === 'registration' && !TRACKING_ENABLED && (
+          <Center py={80}>
+            <Paper shadow="sm" radius="md" p="xl" withBorder maw={480} ta="center">
+              <Text size="2.5rem" mb="md">🔒</Text>
+              <Text fw={700} size="lg" mb="xs">Item-Level Tracking Disabled</Text>
+              <Text size="sm" c="dimmed" mb="md">
+                The Registration module requires item-level tracking to be enabled.
+                Barcode scanning and unit registration are not available in the current configuration.
+              </Text>
+              <Alert variant="light" color="blue" radius="md">
+                Please contact your administrator to enable the tracking module.
+              </Alert>
+            </Paper>
+          </Center>
         )}
 
         {activeSection === 'dispatch' && dispatchSubTab === 'dispatch' && (

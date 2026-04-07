@@ -88,7 +88,7 @@ export class PurchaseOrderService {
   }
 
   /**
-   * Mark PO as received: update status + add stock qty to inventory_items +
+   * Mark PO as registered: update status + add stock qty to inventory_items +
    * create inventory_unit rows for each unit.
    */
   async receive(id) {
@@ -99,7 +99,7 @@ export class PurchaseOrderService {
     // 2. Update status
     const { error: statusError } = await supabase
       .from(TABLES.PURCHASE_ORDERS)
-      .update({ status: 'received', updated_at: new Date().toISOString() })
+      .update({ status: 'registered', updated_at: new Date().toISOString() })
       .eq('id', id)
 
     if (statusError) return { data: null, error: statusError }
