@@ -9,7 +9,7 @@ import InventoryTable from './InventoryTable'
 import BarcodeDrawer from '../shared/BarcodeDrawer'
 import { TRACKING_ENABLED } from '../shared/trackingConfig'
 
-export default function InventoryDashboard({ cartItems, onAddToCart }) {
+export default function InventoryDashboard() {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(true)
   const [filters, setFilters] = useState({
@@ -150,10 +150,6 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
     if (!error) fetchBarcodes(drawerItem.id)
   }
 
-  function handleInlineCart(item, qty) {
-    onAddToCart(item, qty)
-  }
-
   function exportData() {
     const csvContent = [
       ['Item Name', 'Category', 'Brand', 'Quantity', 'Blocked Qty', 'Available'],
@@ -202,8 +198,6 @@ export default function InventoryDashboard({ cartItems, onAddToCart }) {
       <InventoryTable
         filteredData={filteredData}
         data={data}
-        onAddToCart={handleInlineCart}
-        cartItems={cartItems}
         sortBy={filters.sortBy}
         sortOrder={filters.sortOrder}
         onSort={handleSort}

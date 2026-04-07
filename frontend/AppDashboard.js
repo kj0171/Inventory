@@ -12,7 +12,6 @@ import SalesOrderDashboard from './sales/SalesOrderDashboard'
 import DispatchDashboard from './dispatch/DispatchDashboard'
 import RegistrationDashboard from './dispatch/RegistrationDashboard'
 import TeamManagement from './team/TeamManagement'
-import CartDrawer from './inventory/CartDrawer'
 import AddStockForm from './inventory/AddStockForm'
 import CreateSalesOrderForm from './sales/CreateSalesOrderForm'
 import CustomerManagement from './customer/CustomerManagement'
@@ -36,9 +35,6 @@ export default function AppDashboard() {
   const [loadingPOs, setLoadingPOs] = useState(true)
   const [suppliersMap, setSuppliersMap] = useState({})
 
-  // Cart state — persists across tab switches
-  const [cartItems, setCartItems] = useState([])
-  const [cartOpen, setCartOpen] = useState(false)
   // Increment to force InventoryDashboard remount after order submit
   const [inventoryRefreshKey, setInventoryRefreshKey] = useState(0)
 
@@ -110,36 +106,6 @@ export default function AppDashboard() {
 
   if (!user) return null
 
-  // ---- Cart handlers ----
-
-  function handleAddToCart(item, quantity) {
-    setCartItems(prev => {
-      const existing = prev.find(c => c.item_id === item.id)
-      if (existing) {
-        return prev.map(c =>
-          c.item_id === item.id ? { ...c, quantity } : c
-        )
-      }
-      return [...prev, {
-        item_id: item.id,
-        itemName: item.name || 'Unknown',
-        itemCategory: item.item_category || '',
-        quantity,
-        maxAvailable: (item.quantity || 0) - (item.blocked_qty || 0),
-      }]
-    })
-  }
-
-  function handleRemoveFromCart(itemId) {
-    setCartItems(prev => prev.filter(c => c.item_id !== itemId))
-  }
-
-  function handleUpdateCartQty(itemId, quantity) {
-    setCartItems(prev =>
-      prev.map(c => c.item_id === itemId ? { ...c, quantity } : c)
-    )
-  }
-
   // ---- Create order from form ----
 
   async function handleCreateOrder(orderPayload) {
@@ -182,63 +148,6 @@ export default function AppDashboard() {
     }
 
     setSalesOrders(prev => [order, ...prev])
-    setInventoryRefreshKey(prev => prev + 1)
-    return true
-  }
-
-  // ---- Order submit from cart (validate → create → block) ----
-
-  async function handleSubmitOrder(customerInfo) {
-    const { data: items } = await inventoryItemService.getAll()
-    if (!items) {
-      alert('Failed to validate stock. Please try again.')
-      return false
-    }
-
-    const errors = []
-    for (const cartItem of cartItems) {
-      const item = items.find(i => i.id === cartItem.item_id)
-      if (!item) {
-        errors.push(`${cartItem.itemName}: item not found`)
-        continue
-      }
-      const available = (item.quantity || 0) - (item.blocked_qty || 0)
-      if (cartItem.quantity > available) {
-        errors.push(`${cartItem.itemName}: requested ${cartItem.quantity}, only ${available} available`)
-      }
-    }
-
-    if (errors.length > 0) {
-      alert('Order validation failed:\n\n' + errors.join('\n'))
-      return false
-    }
-
-    const { data: order, error: createError } = await salesOrderService.create({
-      customer_id: customerInfo.customer_id,
-      notes: customerInfo.notes,
-      items: cartItems.map(c => ({
-        item_id: c.item_id,
-        quantity: c.quantity,
-      })),
-    })
-
-    if (createError || !order) {
-      alert('Failed to create order. Please try again.')
-      console.error('Create order error:', createError)
-      return false
-    }
-
-    for (const cartItem of cartItems) {
-      const item = items.find(i => i.id === cartItem.item_id)
-      if (item) {
-        const newBlocked = (item.blocked_qty || 0) + cartItem.quantity
-        await inventoryItemService.updateBlockedQty(item.id, newBlocked)
-      }
-    }
-
-    setSalesOrders(prev => [order, ...prev])
-    setCartItems([])
-    setCartOpen(false)
     setInventoryRefreshKey(prev => prev + 1)
     return true
   }
@@ -326,8 +235,6 @@ export default function AppDashboard() {
         mobileOpen={mobileMenuOpen}
         onMobileClose={() => setMobileMenuOpen(false)}
         onSignOut={handleSignOut}
-        cartCount={cartItems.length}
-        onCartToggle={() => setCartOpen(!cartOpen)}
       />
 
       <Box
@@ -450,8 +357,6 @@ export default function AppDashboard() {
         {activeSection === 'inventory' && inventorySubTab === 'view' && (
           <InventoryDashboard
             key={inventoryRefreshKey}
-            cartItems={cartItems}
-            onAddToCart={handleAddToCart}
           />
         )}
 
@@ -475,15 +380,6 @@ export default function AppDashboard() {
         {activeSection === 'team' && (
           <TeamManagement />
         )}
-
-        <CartDrawer
-          cartItems={cartItems}
-          isOpen={cartOpen}
-          onToggle={() => setCartOpen(!cartOpen)}
-          onUpdateQty={handleUpdateCartQty}
-          onRemoveItem={handleRemoveFromCart}
-          onSubmitOrder={handleSubmitOrder}
-        />
       </Box>
     </Box>
   )

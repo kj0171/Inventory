@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Paper, Group, Text, Button, Badge, Table, Box, ActionIcon, Card, SimpleGrid, Stack, Pagination } from '@mantine/core'
+import { Paper, Group, Text, Button, Badge, Table, Box, Card, SimpleGrid, Stack, Pagination } from '@mantine/core'
 import { getCategoryColor, getQuantityColor } from '../shared/utils'
 import { TRACKING_ENABLED } from '../shared/trackingConfig'
 
@@ -15,24 +15,6 @@ function CategoryBadge({ category }) {
     <Badge size="xs" styles={{ root: { background: bg, color, fontWeight: 500, textTransform: 'none' } }}>
       {category}
     </Badge>
-  )
-}
-
-function InlineCartControl({ available, cartQty, onAdd }) {
-  if (available <= 0) return <Text size="xs" c="dimmed">Out of stock</Text>
-  if (cartQty > 0) {
-    return (
-      <Group gap={4} wrap="nowrap">
-        <ActionIcon size="xs" variant="filled" color="green" onClick={() => onAdd(Math.max(0, cartQty - 1))}>−</ActionIcon>
-        <Text size="xs" fw={700} w={20} ta="center">{cartQty}</Text>
-        <ActionIcon size="xs" variant="filled" color="green" onClick={() => onAdd(Math.min(available, cartQty + 1))} disabled={cartQty >= available}>+</ActionIcon>
-      </Group>
-    )
-  }
-  return (
-    <Button size="compact-xs" variant="light" onClick={() => onAdd(1)}>
-      + Cart
-    </Button>
   )
 }
 
@@ -52,7 +34,7 @@ function SortHeader({ label, field, sortBy, sortOrder, onSort }) {
 }
 
 /* ==================== Desktop Table ==================== */
-function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort, onRowClick }) {
+function DesktopView({ rows, sortBy, sortOrder, onSort, onRowClick }) {
   return (
     <Box visibleFrom="sm" style={{ overflowX: 'auto' }}>
       <Table striped highlightOnHover verticalSpacing="sm">
@@ -64,7 +46,6 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort,
             <SortHeader label="Stock" field="quantity" sortBy={sortBy} sortOrder={sortOrder} onSort={onSort} />
             <Table.Th>Blocked</Table.Th>
             <Table.Th>Available</Table.Th>
-            <Table.Th>Cart</Table.Th>
           </Table.Tr>
         </Table.Thead>
         <Table.Tbody>
@@ -86,13 +67,6 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort,
                 <Table.Td><QuantityBadge qty={row.quantity} /></Table.Td>
                 <Table.Td><Badge variant="light" color="red" size="sm">{row.blocked_qty || 0}</Badge></Table.Td>
                 <Table.Td><QuantityBadge qty={avail} /></Table.Td>
-                <Table.Td onClick={(e) => e.stopPropagation()}>
-                  <InlineCartControl
-                    available={avail}
-                    cartQty={getCartQty(row.id)}
-                    onAdd={(qty) => onAddToCart(row, qty)}
-                  />
-                </Table.Td>
               </Table.Tr>
             )
           })}
@@ -103,7 +77,7 @@ function DesktopView({ rows, getCartQty, onAddToCart, sortBy, sortOrder, onSort,
 }
 
 /* ==================== Mobile Cards ==================== */
-function MobileView({ rows, getCartQty, onAddToCart, onRowClick }) {
+function MobileView({ rows, onRowClick }) {
   return (
     <Box hiddenFrom="sm">
       <Stack gap="xs">
@@ -128,13 +102,6 @@ function MobileView({ rows, getCartQty, onAddToCart, onRowClick }) {
                     <CategoryBadge category={row.item_category || 'Other'} />
                     <Badge variant="light" color="blue" size="xs">{row.item_group || 'N/A'}</Badge>
                   </Group>
-                </Box>
-                <Box onClick={(e) => e.stopPropagation()}>
-                  <InlineCartControl
-                    available={avail}
-                    cartQty={getCartQty(row.id)}
-                    onAdd={(qty) => onAddToCart(row, qty)}
-                  />
                 </Box>
               </Group>
               <SimpleGrid cols={3} spacing="xs">
@@ -163,7 +130,7 @@ const PAGE_SIZE = 50
 
 /* ==================== Main ==================== */
 export default function InventoryTable({
-  filteredData, data, onAddToCart, cartItems, sortBy, sortOrder, onSort, onExport, onRowClick
+  filteredData, data, sortBy, sortOrder, onSort, onExport, onRowClick
 }) {
   const [page, setPage] = useState(1)
   const totalPages = Math.ceil(filteredData.length / PAGE_SIZE)
@@ -171,11 +138,6 @@ export default function InventoryTable({
 
   // Reset to page 1 when filters/sort change the data
   useEffect(() => { setPage(1) }, [filteredData.length, sortBy, sortOrder])
-
-  function getCartQty(itemId) {
-    const item = (cartItems || []).find(c => c.item_id === itemId)
-    return item ? item.quantity : 0
-  }
 
   return (
     <Paper shadow="sm" radius="md" withBorder style={{ overflow: 'hidden' }}>
@@ -201,8 +163,6 @@ export default function InventoryTable({
         <Box p={{ base: 'xs', sm: 'md' }}>
           <DesktopView
             rows={paginatedData}
-            getCartQty={getCartQty}
-            onAddToCart={onAddToCart}
             sortBy={sortBy}
             sortOrder={sortOrder}
             onSort={onSort}
@@ -210,8 +170,6 @@ export default function InventoryTable({
           />
           <MobileView
             rows={paginatedData}
-            getCartQty={getCartQty}
-            onAddToCart={onAddToCart}
             onRowClick={onRowClick}
           />
           {totalPages > 1 && (

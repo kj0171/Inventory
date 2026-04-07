@@ -1,6 +1,6 @@
 'use client'
 
-import { Box, Drawer, Indicator, NavLink, Stack, Text, UnstyledButton } from '@mantine/core'
+import { Box, Drawer, NavLink, Stack, Text, UnstyledButton } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { useAuth, canAccessWithRole } from './auth'
 
@@ -15,7 +15,7 @@ const NAV_ITEMS = [
 const sidebarBg = 'linear-gradient(180deg, #1e1e2f 0%, #2d2d44 100%)'
 const activeGradient = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
 
-function SidebarContent({ activeSection, onSectionChange, collapsed, onToggleCollapse, onSignOut, cartCount, onCartToggle, onClose }) {
+function SidebarContent({ activeSection, onSectionChange, collapsed, onToggleCollapse, onSignOut, onClose }) {
   const { user } = useAuth()
   const role = user?.profile?.role || ''
   const visibleItems = NAV_ITEMS.filter(item => canAccessWithRole(role, item.id))
@@ -95,31 +95,6 @@ function SidebarContent({ activeSection, onSectionChange, collapsed, onToggleCol
             {!collapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>{item.label}</span>}
           </UnstyledButton>
         ))}
-
-        {/* Cart */}
-        <UnstyledButton
-          onClick={() => { onCartToggle(); if (onClose) onClose() }}
-          title="Cart"
-          px={collapsed ? 8 : 14}
-          py={12}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            borderRadius: 10,
-            color: 'rgba(255,255,255,0.65)',
-            background: 'transparent',
-            fontWeight: 500,
-            fontSize: '0.95rem',
-            width: '100%',
-          }}
-        >
-          <Indicator label={cartCount} size={16} disabled={!cartCount} color="red" offset={4}>
-            <span style={{ fontSize: '1.2rem', width: 24, textAlign: 'center' }}>🛒</span>
-          </Indicator>
-          {!collapsed && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden' }}>Cart{cartCount > 0 ? ` (${cartCount})` : ''}</span>}
-        </UnstyledButton>
       </Stack>
 
       {/* Footer */}
@@ -155,7 +130,7 @@ function SidebarContent({ activeSection, onSectionChange, collapsed, onToggleCol
   )
 }
 
-export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose, onSignOut, cartCount, onCartToggle }) {
+export default function Sidebar({ activeSection, onSectionChange, collapsed, onToggleCollapse, mobileOpen, onMobileClose, onSignOut }) {
   const isMobile = useMediaQuery('(max-width: 768px)')
   const width = collapsed ? 60 : 240
 
@@ -175,8 +150,6 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
           onSectionChange={onSectionChange}
           collapsed={false}
           onSignOut={onSignOut}
-          cartCount={cartCount}
-          onCartToggle={onCartToggle}
           onClose={onMobileClose}
         />
       </Drawer>
@@ -203,8 +176,6 @@ export default function Sidebar({ activeSection, onSectionChange, collapsed, onT
         collapsed={collapsed}
         onToggleCollapse={onToggleCollapse}
         onSignOut={onSignOut}
-        cartCount={cartCount}
-        onCartToggle={onCartToggle}
       />
     </Box>
   )
