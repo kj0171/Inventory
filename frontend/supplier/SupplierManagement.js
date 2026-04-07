@@ -1,48 +1,49 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { customerService } from '../../backend'
+import { supplierService } from '../../backend'
 import {
   Table, Button, Modal, TextInput, Textarea, Group, Stack,
-  Title, Text, Card, Badge, Loader, Center, Alert, SimpleGrid, Divider
+  Title, Text, Card, Loader, Center, Alert, SimpleGrid, Divider
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 
-export default function CustomerManagement() {
-  const [customers, setCustomers] = useState([])
+export default function SupplierManagement() {
+  const [suppliers, setSuppliers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [editingCustomer, setEditingCustomer] = useState(null)
+  const [editingSupplier, setEditingSupplier] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState('')
-  const [form, setForm] = useState({ name: '', mobile: '', email: '', gst_number: '', address: '' })
+  const [form, setForm] = useState({ name: '', firm_name: '', mobile: '', email: '', gst_number: '', address: '' })
   const [search, setSearch] = useState('')
   const isMobile = useMediaQuery('(max-width: 768px)')
 
-  const fetchCustomers = useCallback(async () => {
+  const fetchSuppliers = useCallback(async () => {
     setLoading(true)
-    const { data, error } = await customerService.getAll()
-    if (!error && data) setCustomers(data)
+    const { data, error } = await supplierService.getAll()
+    if (!error && data) setSuppliers(data)
     setLoading(false)
   }, [])
 
-  useEffect(() => { fetchCustomers() }, [fetchCustomers])
+  useEffect(() => { fetchSuppliers() }, [fetchSuppliers])
 
   function openAdd() {
-    setEditingCustomer(null)
-    setForm({ name: '', mobile: '', email: '', gst_number: '', address: '' })
+    setEditingSupplier(null)
+    setForm({ name: '', firm_name: '', mobile: '', email: '', gst_number: '', address: '' })
     setFormError('')
     setShowForm(true)
   }
 
-  function openEdit(customer) {
-    setEditingCustomer(customer)
+  function openEdit(supplier) {
+    setEditingSupplier(supplier)
     setForm({
-      name: customer.name || '',
-      mobile: customer.mobile || '',
-      email: customer.email || '',
-      gst_number: customer.gst_number || '',
-      address: customer.address || '',
+      name: supplier.name || '',
+      firm_name: supplier.firm_name || '',
+      mobile: supplier.mobile || '',
+      email: supplier.email || '',
+      gst_number: supplier.gst_number || '',
+      address: supplier.address || '',
     })
     setFormError('')
     setShowForm(true)
@@ -63,9 +64,10 @@ export default function CustomerManagement() {
     setFormError('')
 
     try {
-      if (editingCustomer) {
-        const { error } = await customerService.update(editingCustomer.id, {
+      if (editingSupplier) {
+        const { error } = await supplierService.update(editingSupplier.id, {
           name: form.name.trim(),
+          firm_name: form.firm_name.trim() || null,
           mobile: form.mobile.trim(),
           email: form.email.trim() || null,
           gst_number: form.gst_number.trim() || null,
@@ -73,8 +75,9 @@ export default function CustomerManagement() {
         })
         if (error) { setFormError(error.message); return }
       } else {
-        const { error } = await customerService.create({
+        const { error } = await supplierService.create({
           name: form.name.trim(),
+          firm_name: form.firm_name.trim() || null,
           mobile: form.mobile.trim(),
           email: form.email.trim() || null,
           gst_number: form.gst_number.trim() || null,
@@ -84,8 +87,8 @@ export default function CustomerManagement() {
       }
 
       setShowForm(false)
-      setEditingCustomer(null)
-      fetchCustomers()
+      setEditingSupplier(null)
+      fetchSuppliers()
     } catch (err) {
       setFormError(err.message || 'Something went wrong')
     } finally {
@@ -94,41 +97,41 @@ export default function CustomerManagement() {
   }
 
   async function handleRemove(id) {
-    if (!confirm('Remove this customer?')) return
-    const { error } = await customerService.remove(id)
+    if (!confirm('Remove this supplier?')) return
+    const { error } = await supplierService.remove(id)
     if (error) {
       alert('Failed to remove: ' + error.message)
       return
     }
-    setCustomers(prev => prev.filter(c => c.id !== id))
+    setSuppliers(prev => prev.filter(s => s.id !== id))
   }
 
-  const filtered = customers.filter(c => {
+  const filtered = suppliers.filter(s => {
     const q = search.toLowerCase()
-    return !q || c.name?.toLowerCase().includes(q) || c.mobile?.includes(q) || c.email?.toLowerCase().includes(q)
+    return !q || s.name?.toLowerCase().includes(q) || s.firm_name?.toLowerCase().includes(q) || s.mobile?.includes(q) || s.email?.toLowerCase().includes(q)
   })
 
   return (
     <Stack gap="lg">
       <Group justify="space-between" align="center">
         <div>
-          <Title order={3}>Customers</Title>
-          <Text size="sm" c="dimmed">{filtered.length} of {customers.length} customer{customers.length !== 1 ? 's' : ''}</Text>
+          <Title order={3}>Suppliers</Title>
+          <Text size="sm" c="dimmed">{filtered.length} of {suppliers.length} supplier{suppliers.length !== 1 ? 's' : ''}</Text>
         </div>
-        <Button onClick={openAdd}>+ Add Customer</Button>
+        <Button onClick={openAdd}>+ Add Supplier</Button>
       </Group>
 
       <TextInput
-        placeholder="Search by name, mobile or email..."
+        placeholder="Search by name, firm, mobile or email..."
         value={search}
         onChange={e => setSearch(e.target.value)}
       />
 
-      {/* Add/Edit Customer Modal */}
+      {/* Add/Edit Supplier Modal */}
       <Modal
         opened={showForm}
         onClose={() => setShowForm(false)}
-        title={editingCustomer ? 'Edit Customer' : 'Add New Customer'}
+        title={editingSupplier ? 'Edit Supplier' : 'Add New Supplier'}
         centered
         size="md"
       >
@@ -137,11 +140,20 @@ export default function CustomerManagement() {
             {formError && <Alert color="red" variant="light">{formError}</Alert>}
             <TextInput
               label="Name"
-              placeholder="Customer name"
+              placeholder="Contact person name"
               value={form.name}
               onChange={e => handleChange('name', e.target.value)}
               required
               autoFocus
+            />
+            <Textarea
+              label="Firm Name"
+              placeholder="Firm / company name"
+              value={form.firm_name}
+              onChange={e => handleChange('firm_name', e.target.value)}
+              autosize
+              minRows={1}
+              maxRows={3}
             />
             <SimpleGrid cols={{ base: 1, sm: 2 }}>
               <TextInput
@@ -179,55 +191,58 @@ export default function CustomerManagement() {
             <Group justify="flex-end">
               <Button variant="default" onClick={() => setShowForm(false)}>Cancel</Button>
               <Button type="submit" loading={submitting}>
-                {editingCustomer ? 'Update' : 'Add Customer'}
+                {editingSupplier ? 'Update' : 'Add Supplier'}
               </Button>
             </Group>
           </Stack>
         </form>
       </Modal>
 
-      {/* Customer List */}
+      {/* Supplier List */}
       {loading ? (
         <Center py="xl"><Loader /></Center>
-      ) : customers.length === 0 ? (
+      ) : suppliers.length === 0 ? (
         <Card withBorder p="xl" ta="center">
-          <Text c="dimmed">No customers added yet. Click &quot;Add Customer&quot; to get started.</Text>
+          <Text c="dimmed">No suppliers added yet. Click &quot;Add Supplier&quot; to get started.</Text>
         </Card>
       ) : isMobile ? (
         /* Mobile: Card layout */
         <Stack gap="sm">
-          {filtered.map(cust => (
-            <Card key={cust.id} withBorder radius="md" padding="md">
+          {filtered.map(sup => (
+            <Card key={sup.id} withBorder radius="md" padding="md">
               <Group justify="space-between" align="flex-start" mb={4}>
-                <Text fw={600} size="sm">{cust.name}</Text>
+                <div>
+                  <Text fw={600} size="sm">{sup.name}</Text>
+                  {sup.firm_name && <Text size="xs" c="dimmed">{sup.firm_name}</Text>}
+                </div>
               </Group>
               <Stack gap={4}>
                 <Group gap="xs">
                   <Text size="xs" c="dimmed" w={55}>Mobile</Text>
-                  <Text size="xs">{cust.mobile || '—'}</Text>
+                  <Text size="xs">{sup.mobile || '—'}</Text>
                 </Group>
-                {cust.email && (
+                {sup.email && (
                   <Group gap="xs">
                     <Text size="xs" c="dimmed" w={55}>Email</Text>
-                    <Text size="xs">{cust.email}</Text>
+                    <Text size="xs">{sup.email}</Text>
                   </Group>
                 )}
-                {cust.gst_number && (
+                {sup.gst_number && (
                   <Group gap="xs">
                     <Text size="xs" c="dimmed" w={55}>GST</Text>
-                    <Text size="xs">{cust.gst_number}</Text>
+                    <Text size="xs">{sup.gst_number}</Text>
                   </Group>
                 )}
-                {cust.address && (
+                {sup.address && (
                   <Group gap="xs">
                     <Text size="xs" c="dimmed" w={55}>Address</Text>
-                    <Text size="xs">{cust.address}</Text>
+                    <Text size="xs">{sup.address}</Text>
                   </Group>
                 )}
               </Stack>
               <Group gap="xs" mt="xs">
-                <Button size="compact-xs" variant="subtle" onClick={() => openEdit(cust)}>Edit</Button>
-                <Button size="compact-xs" color="red" variant="subtle" onClick={() => handleRemove(cust.id)}>Remove</Button>
+                <Button size="compact-xs" variant="subtle" onClick={() => openEdit(sup)}>Edit</Button>
+                <Button size="compact-xs" color="red" variant="subtle" onClick={() => handleRemove(sup.id)}>Remove</Button>
               </Group>
             </Card>
           ))}
@@ -239,6 +254,7 @@ export default function CustomerManagement() {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Name</Table.Th>
+                <Table.Th>Firm Name</Table.Th>
                 <Table.Th>Mobile</Table.Th>
                 <Table.Th>Email</Table.Th>
                 <Table.Th>GST Number</Table.Th>
@@ -247,17 +263,18 @@ export default function CustomerManagement() {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {filtered.map(cust => (
-                <Table.Tr key={cust.id}>
-                  <Table.Td fw={600}>{cust.name}</Table.Td>
-                  <Table.Td>{cust.mobile || '—'}</Table.Td>
-                  <Table.Td>{cust.email || '—'}</Table.Td>
-                  <Table.Td>{cust.gst_number || '—'}</Table.Td>
-                  <Table.Td>{cust.address || '—'}</Table.Td>
+              {filtered.map(sup => (
+                <Table.Tr key={sup.id}>
+                  <Table.Td fw={600}>{sup.name}</Table.Td>
+                  <Table.Td>{sup.firm_name || '—'}</Table.Td>
+                  <Table.Td>{sup.mobile || '—'}</Table.Td>
+                  <Table.Td>{sup.email || '—'}</Table.Td>
+                  <Table.Td>{sup.gst_number || '—'}</Table.Td>
+                  <Table.Td>{sup.address || '—'}</Table.Td>
                   <Table.Td>
                     <Group gap="xs">
-                      <Button size="compact-xs" variant="subtle" onClick={() => openEdit(cust)}>Edit</Button>
-                      <Button size="compact-xs" color="red" variant="subtle" onClick={() => handleRemove(cust.id)}>Remove</Button>
+                      <Button size="compact-xs" variant="subtle" onClick={() => openEdit(sup)}>Edit</Button>
+                      <Button size="compact-xs" color="red" variant="subtle" onClick={() => handleRemove(sup.id)}>Remove</Button>
                     </Group>
                   </Table.Td>
                 </Table.Tr>

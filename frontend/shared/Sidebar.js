@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { id: 'orders', label: 'Orders', icon: '📋' },
   { id: 'dispatch', label: 'Dispatch', icon: '🚚' },
   { id: 'customers', label: 'Customers', icon: '🧑‍💼' },
+  { id: 'suppliers', label: 'Suppliers', icon: '🏭' },
   { id: 'team', label: 'Team', icon: '👥' },
 ]
 
@@ -47,7 +48,7 @@ function SidebarContent({ activeSection, onSectionChange, collapsed, onToggleCol
         }}
       >
         {!collapsed && (
-          <Text c="white" fw={600} size="md" style={{ letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden' }}>
+          <Text c="white" fw={600} size="md" style={{ letterSpacing: 0.5, lineHeight: 1.3 }}>
             {process.env.NEXT_PUBLIC_FIRM_NAME || 'Firm Name'}
           </Text>
         )}
