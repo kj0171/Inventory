@@ -175,20 +175,21 @@ export default function PurchaseOrderDashboard({
         ))}
       </SimpleGrid>
 
-      <Group gap="sm">
+      <Stack gap="xs">
         <TextInput
           size="sm"
           placeholder="Search by item, supplier…"
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.currentTarget.value)}
-          style={{ flex: 1 }}
         />
-        <TextInput size="sm" type="date" placeholder="From" value={dateFrom} onChange={(e) => setDateFrom(e.currentTarget.value)} w={140} />
-        <TextInput size="sm" type="date" placeholder="To" value={dateTo} onChange={(e) => setDateTo(e.currentTarget.value)} w={140} />
-        {(dateFrom || dateTo || searchFilter) && (
-          <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setDateFrom(''); setDateTo('') }}>Clear</Button>
-        )}
-      </Group>
+        <Group gap="sm">
+          <TextInput size="sm" type="date" placeholder="From" value={dateFrom} onChange={(e) => setDateFrom(e.currentTarget.value)} style={{ flex: 1 }} />
+          <TextInput size="sm" type="date" placeholder="To" value={dateTo} onChange={(e) => setDateTo(e.currentTarget.value)} style={{ flex: 1 }} />
+          {(dateFrom || dateTo || searchFilter) && (
+            <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setDateFrom(''); setDateTo('') }}>Clear</Button>
+          )}
+        </Group>
+      </Stack>
 
       <Paper p="md" radius="md" withBorder>
         {loading ? (
@@ -239,26 +240,26 @@ export default function PurchaseOrderDashboard({
                   </SimpleGrid>
 
                   <Collapse expanded={isExpanded}>
-                    <Stack gap={4} mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
+                    <Stack gap="sm" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
                       {items.map(li => {
                         return (
-                          <div key={li.id}>
-                            <Group justify="space-between">
-                              <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
-                              <Group gap="xs">
-                                <Badge variant="light" size="sm">{li.quantity} units</Badge>
-                                <Text size="xs" c="dimmed">{formatCurrency(li.price)}/unit</Text>
-                                {TRACKING_ENABLED && (() => {
-                                  const units = getLineItemUnits(order.id, li.inventory_id)
-                                  return units.length > 0 ? (
-                                    <Button size="compact-xs" variant="subtle" onClick={(e) => { e.stopPropagation(); setDrawerItem({ poId: order.id, inventoryId: li.inventory_id, name: li.inventory_items?.name || 'Unknown' }) }}>
-                                      View ({units.length})
-                                    </Button>
-                                  ) : null
-                                })()}
-                              </Group>
+                          <Stack key={li.id} gap={4}>
+                            <Group justify="space-between" wrap="nowrap">
+                              <Text size="sm" fw={500} style={{ flex: 1, minWidth: 0 }}>{li.inventory_items?.name || 'Unknown'}</Text>
+                              <Badge variant="light" size="sm">{li.quantity} units</Badge>
                             </Group>
-                          </div>
+                            <Group gap="xs">
+                              <Text size="xs" c="dimmed">{formatCurrency(li.price)}/unit</Text>
+                              {TRACKING_ENABLED && (() => {
+                                const units = getLineItemUnits(order.id, li.inventory_id)
+                                return (
+                                  <Button size="compact-xs" variant="subtle" onClick={(e) => { e.stopPropagation(); setDrawerItem({ poId: order.id, inventoryId: li.inventory_id, name: li.inventory_items?.name || 'Unknown' }) }}>
+                                    View{units.length > 0 ? ` (${units.length})` : ''}
+                                  </Button>
+                                )
+                              })()}
+                            </Group>
+                          </Stack>
                         )
                       })}
                       {order.notes && (
@@ -382,11 +383,11 @@ export default function PurchaseOrderDashboard({
                                 <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{formatCurrency(li.price)}/unit</Text>
                                 {TRACKING_ENABLED && (() => {
                                   const units = getLineItemUnits(order.id, li.inventory_id)
-                                  return units.length > 0 ? (
+                                  return (
                                     <Button size="compact-xs" variant="subtle" onClick={() => setDrawerItem({ poId: order.id, inventoryId: li.inventory_id, name: li.inventory_items?.name || 'Unknown' })}>
-                                      View ({units.length})
+                                      View{units.length > 0 ? ` (${units.length})` : ''}
                                     </Button>
-                                  ) : null
+                                  )
                                 })()}
                               </Group>
                             </Table.Td>
