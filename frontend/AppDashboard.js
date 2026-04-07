@@ -16,6 +16,7 @@ import CartDrawer from './inventory/CartDrawer'
 import AddStockForm from './inventory/AddStockForm'
 import CreateSalesOrderForm from './sales/CreateSalesOrderForm'
 import CustomerManagement from './customer/CustomerManagement'
+import SupplierManagement from './supplier/SupplierManagement'
 import { TRACKING_ENABLED } from './shared/trackingConfig'
 
 export default function AppDashboard() {
@@ -404,6 +405,10 @@ export default function AppDashboard() {
 
         {activeSection === 'customers' && (
           <CustomerManagement />
+        )}
+
+        {activeSection === 'suppliers' && (
+          <SupplierManagement />
         )}
 
         {activeSection === 'team' && (

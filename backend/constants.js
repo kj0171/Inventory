@@ -4,5 +4,6 @@ export const TABLES = {
   SALES_ORDERS: 'sales_orders',
   SALES_ORDER_ITEMS: 'sales_order_items',
   CUSTOMERS: 'customers',
+  SUPPLIERS: 'supplier',
   PROFILES: 'profiles',
 }
