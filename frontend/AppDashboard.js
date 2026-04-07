@@ -2,22 +2,22 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { ActionIcon, Badge, Box, Center, Loader, SegmentedControl, Stack, Text } from '@mantine/core'
+import { ActionIcon, Box, Center, Loader, SegmentedControl, Stack, Text } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import Sidebar from './shared/Sidebar'
 import { useAuth, ROLES } from './shared/auth'
-import { salesOrderService, inventoryItemService, authService, customerService } from '../backend'
+import { salesOrderService, inventoryItemService, authService, customerService, supplierService, purchaseOrderService } from '../backend'
 import InventoryDashboard from './inventory/InventoryDashboard'
 import SalesOrderDashboard from './sales/SalesOrderDashboard'
 import DispatchDashboard from './dispatch/DispatchDashboard'
-import ReceiptBarcodeRegistration from './dispatch/ReceiptBarcodeRegistration'
+import RegistrationDashboard from './dispatch/RegistrationDashboard'
 import TeamManagement from './team/TeamManagement'
 import CartDrawer from './inventory/CartDrawer'
 import AddStockForm from './inventory/AddStockForm'
 import CreateSalesOrderForm from './sales/CreateSalesOrderForm'
 import CustomerManagement from './customer/CustomerManagement'
 import SupplierManagement from './supplier/SupplierManagement'
-import { TRACKING_ENABLED } from './shared/trackingConfig'
+import PurchaseOrderDashboard from './purchase/PurchaseOrderDashboard'
 
 export default function AppDashboard() {
   const router = useRouter()
@@ -31,6 +31,9 @@ export default function AppDashboard() {
   const [salesOrders, setSalesOrders] = useState([])
   const [loadingOrders, setLoadingOrders] = useState(true)
   const [customersMap, setCustomersMap] = useState({})
+  const [purchaseOrders, setPurchaseOrders] = useState([])
+  const [loadingPOs, setLoadingPOs] = useState(true)
+  const [suppliersMap, setSuppliersMap] = useState({})
 
   // Cart state — persists across tab switches
   const [cartItems, setCartItems] = useState([])
@@ -40,21 +43,35 @@ export default function AppDashboard() {
 
   const fetchOrders = useCallback(async () => {
     setLoadingOrders(true)
-    const [ordersRes, custRes] = await Promise.all([
+    setLoadingPOs(true)
+    const [ordersRes, custRes, poRes, suppRes] = await Promise.all([
       salesOrderService.getAll(),
       customerService.getAll(),
+      purchaseOrderService.getAll(),
+      supplierService.getAll(),
     ])
     if (!custRes.error && custRes.data) {
       const map = {}
       custRes.data.forEach(c => { map[c.id] = c })
       setCustomersMap(map)
     }
+    if (!suppRes.error && suppRes.data) {
+      const map = {}
+      suppRes.data.forEach(s => { map[s.id] = s })
+      setSuppliersMap(map)
+    }
     if (!ordersRes.error && ordersRes.data) {
       setSalesOrders(ordersRes.data)
     } else if (ordersRes.error) {
       console.error('Error fetching sales orders:', ordersRes.error)
     }
+    if (!poRes.error && poRes.data) {
+      setPurchaseOrders(poRes.data)
+    } else if (poRes.error) {
+      console.error('Error fetching purchase orders:', poRes.error)
+    }
     setLoadingOrders(false)
+    setLoadingPOs(false)
   }, [])
 
   useEffect(() => {
@@ -275,6 +292,11 @@ export default function AppDashboard() {
 
   const dispatchOrders = salesOrders.filter(o => o.status === 'approved' || o.status === 'dispatched')
 
+  async function handleMarkPOComplete(poId) {
+    const { data, error } = await purchaseOrderService.updateStatus(poId, 'received')
+    if (error) { alert('Failed to mark PO complete.'); return }
+    setPurchaseOrders(prev => prev.map(o => o.id === poId ? data : o))
+  }
 
   return (
     <Box style={{ display: 'flex', minHeight: '100vh', overflow: 'hidden', width: '100%' }}>
@@ -333,6 +355,7 @@ export default function AppDashboard() {
             data={[
               { value: 'createorder', label: 'Create Order' },
               { value: 'sales', label: 'Sales Orders' },
+              { value: 'purchaseorders', label: 'Purchase Orders' },
             ]}
             mb="md"
           />
@@ -344,10 +367,28 @@ export default function AppDashboard() {
             value={dispatchSubTab}
             onChange={setDispatchSubTab}
             data={[
-              { value: 'registration', label: TRACKING_ENABLED ? 'Registration' : '🔒 Registration' },
+              { value: 'registration', label: 'Registration' },
               { value: 'dispatch', label: 'Dispatch' },
             ]}
             mb="md"
+          />
+        )}
+
+        {activeSection === 'dispatch' && dispatchSubTab === 'registration' && (
+          <RegistrationDashboard
+            orders={purchaseOrders}
+            suppliersMap={suppliersMap}
+            loading={loadingPOs}
+            onMarkComplete={handleMarkPOComplete}
+          />
+        )}
+
+        {activeSection === 'dispatch' && dispatchSubTab === 'dispatch' && (
+          <DispatchDashboard
+            orders={dispatchOrders}
+            customersMap={customersMap}
+            loading={loadingOrders}
+            onDispatch={handleDispatch}
           />
         )}
 
@@ -360,7 +401,7 @@ export default function AppDashboard() {
         )}
 
         {activeSection === 'inventory' && inventorySubTab === 'addstock' && (
-          <AddStockForm onStockAdded={() => setInventoryRefreshKey(prev => prev + 1)} />
+          <AddStockForm onStockAdded={() => { setInventoryRefreshKey(prev => prev + 1); fetchOrders() }} />
         )}
 
         {activeSection === 'orders' && orderSubTab === 'createorder' && (
@@ -377,29 +418,12 @@ export default function AppDashboard() {
           />
         )}
 
-        {activeSection === 'dispatch' && dispatchSubTab === 'registration' && (
-          TRACKING_ENABLED ? (
-            <ReceiptBarcodeRegistration />
-          ) : (
-            <Center py={80}>
-              <Stack align="center" gap="md" maw={400}>
-                <Text style={{ fontSize: 48 }}>🔒</Text>
-                <Text fw={700} size="xl" ta="center">Item-Level Tracking</Text>
-                <Text c="dimmed" ta="center" size="sm">
-                  Enable item-level tracking to unlock barcode registration, unit scanning, and per-unit traceability across your inventory and dispatch workflows.
-                </Text>
-                <Badge variant="light" color="blue" size="lg">Contact your admin to enable</Badge>
-              </Stack>
-            </Center>
-          )
-        )}
-
-        {activeSection === 'dispatch' && dispatchSubTab === 'dispatch' && (
-          <DispatchDashboard
-            orders={dispatchOrders}
-            customersMap={customersMap}
-            loading={loadingOrders}
-            onDispatch={handleDispatch}
+        {activeSection === 'orders' && orderSubTab === 'purchaseorders' && (
+          <PurchaseOrderDashboard
+            orders={purchaseOrders}
+            suppliersMap={suppliersMap}
+            loading={loadingPOs}
+            onMarkComplete={handleMarkPOComplete}
           />
         )}
 

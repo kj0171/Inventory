@@ -1,15 +1,19 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Select, TextInput, NumberInput, Button, Paper, Group, Text, Stack, Alert, ActionIcon, Badge, SimpleGrid, Box } from '@mantine/core'
-import { inventoryItemService } from '../../backend'
-import { addStockReceipt } from '../shared/stockReceipts'
+import { Select, TextInput, NumberInput, Button, Paper, Group, Text, Stack, Alert, ActionIcon, Badge, SimpleGrid, Box, Textarea, Autocomplete } from '@mantine/core'
+import { useMediaQuery } from '@mantine/hooks'
+import { inventoryItemService, supplierService, purchaseOrderService } from '../../backend'
 
-const EMPTY_ROW = { mode: 'existing', itemId: '', name: '', item_category: '', item_group: '', quantity: '', searchText: '' }
+const EMPTY_ROW = { mode: 'existing', itemId: '', name: '', item_category: '', item_group: '', quantity: '', price: '', searchText: '' }
 
 export default function AddStockForm({ onStockAdded }) {
   const [rows, setRows] = useState([{ ...EMPTY_ROW }])
   const [items, setItems] = useState([])
+  const [suppliers, setSuppliers] = useState([])
+  const [suppliersLoading, setSuppliersLoading] = useState(true)
+  const [selectedSupplierId, setSelectedSupplierId] = useState('')
+  const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [errorMsg, setErrorMsg] = useState('')
@@ -19,7 +23,14 @@ export default function AddStockForm({ onStockAdded }) {
     if (data) setItems(data)
   }, [])
 
-  useEffect(() => { fetchItems() }, [fetchItems])
+  const fetchSuppliers = useCallback(async () => {
+    setSuppliersLoading(true)
+    const { data } = await supplierService.getAll()
+    if (data) setSuppliers(data)
+    setSuppliersLoading(false)
+  }, [])
+
+  useEffect(() => { fetchItems(); fetchSuppliers() }, [fetchItems, fetchSuppliers])
 
   const categories = [...new Set(items.map(i => i.item_category).filter(Boolean))].sort()
   const itemGroups = [...new Set(items.map(i => i.item_group).filter(Boolean))].sort()
@@ -62,6 +73,11 @@ export default function AddStockForm({ onStockAdded }) {
     setSuccessMsg('')
     setErrorMsg('')
 
+    if (!selectedSupplierId) {
+      setErrorMsg('Select a supplier')
+      return
+    }
+
     for (let i = 0; i < rows.length; i++) {
       const row = rows[i]
       if (!row.quantity || parseInt(row.quantity) <= 0) {
@@ -100,26 +116,39 @@ export default function AddStockForm({ onStockAdded }) {
           itemId = newItem.id
         }
 
-        const { error: addError } = await inventoryItemService.addQuantity(itemId, parseInt(row.quantity))
-        if (addError) {
-          setErrorMsg(`Failed to add stock for "${row.name}": ${addError.message}`)
-          setSubmitting(false)
-          return
-        }
-
         resolvedItems.push({
-          itemId,
-          name: row.name,
-          item_category: row.item_category,
-          item_group: row.item_group,
+          inventory_id: itemId,
           quantity: parseInt(row.quantity),
+          price: parseFloat(row.price) || 0,
         })
       }
 
-      addStockReceipt({ items: resolvedItems })
+      // Create PO
+      const { data: po, error: poError } = await purchaseOrderService.create({
+        supplier_id: selectedSupplierId,
+        notes: notes.trim() || null,
+        items: resolvedItems,
+      })
+      if (poError || !po) {
+        setErrorMsg(`Failed to create purchase order: ${poError?.message || 'Unknown error'}`)
+        setSubmitting(false)
+        return
+      }
+
+      // Add stock quantities
+      for (const item of resolvedItems) {
+        const { error: addError } = await inventoryItemService.addQuantity(item.inventory_id, item.quantity)
+        if (addError) {
+          setErrorMsg(`Failed to add stock: ${addError.message}`)
+          setSubmitting(false)
+          return
+        }
+      }
 
       setSuccessMsg(`Successfully added ${rows.length} stock entr${rows.length === 1 ? 'y' : 'ies'}`)
       setRows([{ ...EMPTY_ROW }])
+      setSelectedSupplierId('')
+      setNotes('')
       fetchItems()
       if (onStockAdded) onStockAdded()
     } catch (err) {
@@ -141,6 +170,35 @@ export default function AddStockForm({ onStockAdded }) {
 
       <form onSubmit={handleSubmit}>
         <Stack gap="md">
+          {/* Supplier selection */}
+          <Paper shadow="xs" radius="md" p="md" withBorder>
+            <Stack gap="sm">
+              <Text fw={600} size="sm">Supplier</Text>
+              <Select
+                placeholder={suppliersLoading ? 'Loading suppliers…' : 'Select supplier'}
+                data={suppliers.map(s => ({
+                  value: s.id,
+                  label: s.firm_name ? `${s.name} — ${s.firm_name}` : s.name,
+                }))}
+                value={selectedSupplierId}
+                onChange={setSelectedSupplierId}
+                searchable
+                clearable
+                disabled={suppliersLoading}
+              />
+              {selectedSupplierId && (() => {
+                const sup = suppliers.find(s => s.id === selectedSupplierId)
+                return sup ? (
+                  <Group gap="lg">
+                    {sup.mobile && <Text size="sm" c="dimmed">Phone: {sup.mobile}</Text>}
+                    {sup.email && <Text size="sm" c="dimmed">Email: {sup.email}</Text>}
+                    {sup.gst_number && <Text size="sm" c="dimmed">GST: {sup.gst_number}</Text>}
+                  </Group>
+                ) : null
+              })()}
+            </Stack>
+          </Paper>
+
           {rows.map((row, index) => (
             <Paper key={index} shadow="xs" radius="md" p="md" withBorder>
               <Group justify="space-between" mb="sm">
@@ -150,7 +208,7 @@ export default function AddStockForm({ onStockAdded }) {
                 )}
               </Group>
 
-              <SimpleGrid cols={{ base: 1, sm: row.mode === 'new' ? 5 : 3 }} spacing="sm">
+              <SimpleGrid cols={{ base: 1, sm: row.mode === 'new' ? 6 : 4 }} spacing="sm">
                 <Select
                   label="Type"
                   size="sm"
@@ -185,29 +243,21 @@ export default function AddStockForm({ onStockAdded }) {
                       value={row.name}
                       onChange={e => updateRow(index, 'name', e.currentTarget.value)}
                     />
-                    <Select
+                    <Autocomplete
                       label="Category"
                       size="sm"
-                      searchable
-                      creatable
                       data={categories}
                       value={row.item_category}
                       onChange={val => updateRow(index, 'item_category', val)}
-                      placeholder="Select or create"
-                      getCreateLabel={(q) => `+ Create "${q}"`}
-                      onCreate={(q) => { updateRow(index, 'item_category', q); return q }}
+                      placeholder="Type or select"
                     />
-                    <Select
+                    <Autocomplete
                       label="Brand"
                       size="sm"
-                      searchable
-                      creatable
                       data={itemGroups}
                       value={row.item_group}
                       onChange={val => updateRow(index, 'item_group', val)}
-                      placeholder="Select or create"
-                      getCreateLabel={(q) => `+ Create "${q}"`}
-                      onCreate={(q) => { updateRow(index, 'item_group', q); return q }}
+                      placeholder="Type or select"
                     />
                   </>
                 )}
@@ -220,6 +270,16 @@ export default function AddStockForm({ onStockAdded }) {
                   value={row.quantity === '' ? '' : Number(row.quantity)}
                   onChange={val => updateRow(index, 'quantity', val)}
                 />
+                <NumberInput
+                  label="Price"
+                  size="sm"
+                  min={0}
+                  decimalScale={2}
+                  prefix="₹"
+                  placeholder="Unit price"
+                  value={row.price === '' ? '' : Number(row.price)}
+                  onChange={val => updateRow(index, 'price', val)}
+                />
               </SimpleGrid>
             </Paper>
           ))}
@@ -230,6 +290,15 @@ export default function AddStockForm({ onStockAdded }) {
               {submitting ? 'Adding...' : `Add ${rows.length} Item${rows.length !== 1 ? 's' : ''}`}
             </Button>
           </Group>
+
+          <Textarea
+            label="Notes (optional)"
+            placeholder="Any notes for this purchase…"
+            value={notes}
+            onChange={(e) => setNotes(e.currentTarget.value)}
+            autosize
+            minRows={2}
+          />
         </Stack>
       </form>
     </Stack>

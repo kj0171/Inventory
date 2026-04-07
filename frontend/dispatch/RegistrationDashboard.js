@@ -9,41 +9,41 @@ import { useMediaQuery } from '@mantine/hooks'
 import { formatDate } from '../shared/utils'
 import ScannerInput from '../shared/ScannerInput'
 
-// In-memory barcode store keyed by soItemId → array of { id, barcode, created_at }
-const _dispatchBarcodeStore = {}
+// In-memory barcode store keyed by poItemId → array of { id, barcode, created_at }
+const _barcodeStore = {}
 
-function getBarcodes(soItemId) {
-  return _dispatchBarcodeStore[soItemId] || []
+function getBarcodes(poItemId) {
+  return _barcodeStore[poItemId] || []
 }
 
-function addBarcodes(soItemId, barcodes) {
-  const existing = _dispatchBarcodeStore[soItemId] || []
+function addBarcodes(poItemId, barcodes) {
+  const existing = _barcodeStore[poItemId] || []
   const newEntries = barcodes.map((b, i) => ({
-    id: `${soItemId}-${Date.now()}-${i}`,
+    id: `${poItemId}-${Date.now()}-${i}`,
     barcode: b,
     created_at: new Date().toISOString(),
   }))
-  _dispatchBarcodeStore[soItemId] = [...existing, ...newEntries]
+  _barcodeStore[poItemId] = [...existing, ...newEntries]
   return newEntries
 }
 
-function updateBarcode(soItemId, barcodeId, newBarcode) {
-  const list = _dispatchBarcodeStore[soItemId] || []
-  _dispatchBarcodeStore[soItemId] = list.map(b => b.id === barcodeId ? { ...b, barcode: newBarcode } : b)
+function updateBarcode(poItemId, barcodeId, newBarcode) {
+  const list = _barcodeStore[poItemId] || []
+  _barcodeStore[poItemId] = list.map(b => b.id === barcodeId ? { ...b, barcode: newBarcode } : b)
 }
 
-function deleteBarcode(soItemId, barcodeId) {
-  const list = _dispatchBarcodeStore[soItemId] || []
-  _dispatchBarcodeStore[soItemId] = list.filter(b => b.id !== barcodeId)
+function deleteBarcode(poItemId, barcodeId) {
+  const list = _barcodeStore[poItemId] || []
+  _barcodeStore[poItemId] = list.filter(b => b.id !== barcodeId)
 }
 
-function getBarcodesForItem(itemId, orders) {
+function getBarcodesForItem(inventoryId, orders) {
   const all = []
   for (const order of orders) {
-    for (const li of (order.sales_order_items || [])) {
-      if ((li.item_id || li.inventory_items?.id) === itemId) {
+    for (const li of (order.purchase_order_items || [])) {
+      if (li.inventory_id === inventoryId) {
         for (const b of getBarcodes(li.id)) {
-          all.push({ ...b, soItemId: li.id })
+          all.push({ ...b, poItemId: li.id })
         }
       }
     }
@@ -51,13 +51,15 @@ function getBarcodesForItem(itemId, orders) {
   return all
 }
 
-export default function DispatchDashboard({ orders, customersMap = {}, loading, onDispatch }) {
+export default function RegistrationDashboard({
+  orders, suppliersMap = {}, loading, onMarkComplete,
+}) {
+  const [statusFilter, setStatusFilter] = useState('all')
   const [searchFilter, setSearchFilter] = useState('')
-  const [statusFilter, setStatusFilter] = useState('approved')
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
-  const [scanVersion, setScanVersion] = useState(0)
+  const [regVersion, setRegVersion] = useState(0)
   const [barcodeItem, setBarcodeItem] = useState(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
 
@@ -65,58 +67,73 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
     setBarcodeItem(item)
   }
 
-  function handleScanBarcodes(itemId, soItemId, barcodes) {
-    addBarcodes(soItemId, barcodes)
-    setScanVersion(v => v + 1)
-  }
-
   function toggleExpand(orderId) {
     setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
   }
 
-  function getLineItemScanned(soItemId) {
-    return getBarcodes(soItemId).length
+  function getLineItemReg(poItemId) {
+    const barcodes = getBarcodes(poItemId)
+    return { registered: barcodes.length }
   }
 
-  function getOrderScanProgress(order) {
-    const items = order.sales_order_items || []
-    let total = 0, scanned = 0
+  function getOrderRegProgress(order) {
+    const items = order.purchase_order_items || []
+    let total = 0, registered = 0
     for (const li of items) {
       total += li.quantity
-      scanned += getBarcodes(li.id).length
+      registered += getBarcodes(li.id).length
     }
-    return { total, scanned }
+    return { total, registered }
+  }
+
+  function getOrderStatus(order) {
+    if (order.status === 'received') return 'complete'
+    const { total, registered } = getOrderRegProgress(order)
+    if (total === 0) return 'pending'
+    if (registered >= total) return 'complete'
+    if (registered > 0) return 'partial'
+    return 'pending'
+  }
+
+  function handleRegisterBarcodes(inventoryId, poItemId, barcodes) {
+    addBarcodes(poItemId, barcodes)
+    setRegVersion(v => v + 1)
   }
 
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
-      if (statusFilter !== 'all' && order.status !== statusFilter) return false
+      if (statusFilter !== 'all') {
+        const s = getOrderStatus(order)
+        if (s !== statusFilter) return false
+      }
       if (searchFilter) {
         const search = searchFilter.toLowerCase()
-        const itemNames = (order.sales_order_items || [])
+        const itemNames = (order.purchase_order_items || [])
           .map(li => li.inventory_items?.name || '').join(' ').toLowerCase()
+        const supplierName = (suppliersMap[order.supplier_id]?.name || '').toLowerCase()
+        const firmName = (suppliersMap[order.supplier_id]?.firm_name || '').toLowerCase()
         if (
           !itemNames.includes(search) &&
-          !(customersMap[order.customer_id]?.name || order.customer_name || '').toLowerCase().includes(search) &&
-          !String(order.id).toLowerCase().includes(search)
+          !supplierName.includes(search) &&
+          !firmName.includes(search)
         ) return false
       }
-      if (dateFrom) {
-        const from = new Date(dateFrom)
-        if (new Date(order.updated_at) < from) return false
-      }
+      if (dateFrom && new Date(order.created_at) < new Date(dateFrom)) return false
       if (dateTo) {
         const to = new Date(dateTo)
         to.setHours(23, 59, 59, 999)
-        if (new Date(order.updated_at) > to) return false
+        if (new Date(order.created_at) > to) return false
       }
       return true
     })
-  }, [orders, statusFilter, searchFilter, dateFrom, dateTo, scanVersion])
+  }, [orders, suppliersMap, statusFilter, searchFilter, dateFrom, dateTo, regVersion])
 
-  const readyCount = orders.filter(o => o.status === 'approved').length
-  const dispatchedCount = orders.filter(o => o.status === 'dispatched').length
-  const totalCount = orders.length
+  const stats = useMemo(() => ({
+    total: orders.length,
+    pending: orders.filter(o => getOrderStatus(o) === 'pending').length,
+    partial: orders.filter(o => getOrderStatus(o) === 'partial').length,
+    complete: orders.filter(o => getOrderStatus(o) === 'complete').length,
+  }), [orders, regVersion])
 
   function renderItemsSummary(items) {
     if (!items || items.length === 0) return 'No items'
@@ -129,16 +146,15 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
   }
 
   const statCards = [
-    { label: 'All Orders', value: totalCount, color: 'blue', filter: 'all' },
-    { label: 'Ready to Dispatch', value: readyCount, color: 'yellow', filter: 'approved' },
-    { label: 'Dispatched', value: dispatchedCount, color: 'green', filter: 'dispatched' },
+    { label: 'All POs', value: stats.total, color: 'blue', filter: 'all' },
+    { label: 'Pending', value: stats.pending, color: 'orange', filter: 'pending' },
+    { label: 'Partial', value: stats.partial, color: 'yellow', filter: 'partial' },
+    { label: 'Complete', value: stats.complete, color: 'green', filter: 'complete' },
   ]
-
-  const hasFilters = dateFrom || dateTo || searchFilter
 
   return (
     <Stack gap="md">
-      <SimpleGrid cols={{ base: 3 }}>
+      <SimpleGrid cols={{ base: 2, sm: 4 }}>
         {statCards.map(s => (
           <Paper
             key={s.filter}
@@ -161,14 +177,14 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
       <Group gap="sm">
         <TextInput
           size="sm"
-          placeholder="Search by item, customer, order ID…"
+          placeholder="Search items, supplier…"
           value={searchFilter}
           onChange={e => setSearchFilter(e.currentTarget.value)}
           style={{ flex: 1 }}
         />
         <TextInput size="sm" type="date" placeholder="From" value={dateFrom} onChange={e => setDateFrom(e.currentTarget.value)} w={140} />
         <TextInput size="sm" type="date" placeholder="To" value={dateTo} onChange={e => setDateTo(e.currentTarget.value)} w={140} />
-        {hasFilters && (
+        {(dateFrom || dateTo || searchFilter) && (
           <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setDateFrom(''); setDateTo('') }}>Clear</Button>
         )}
       </Group>
@@ -179,16 +195,18 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
         ) : filteredOrders.length === 0 ? (
           <Center py="xl">
             <Stack align="center" gap="xs">
-              <Text fw={500} size="lg">No orders to dispatch</Text>
-              <Text c="dimmed" size="sm">Orders will appear here once approved by an admin.</Text>
+              <Text fw={500} size="lg">No purchase orders found</Text>
+              <Text c="dimmed" size="sm">{orders.length === 0 ? 'Add stock first to create purchase orders.' : 'Try adjusting the filters.'}</Text>
             </Stack>
           </Center>
         ) : isMobile ? (
           <Stack gap="sm">
             {filteredOrders.map(order => {
-              const items = order.sales_order_items || []
+              const items = order.purchase_order_items || []
               const isExpanded = expandedOrders[order.id]
-              const progress = getOrderScanProgress(order)
+              const supplier = suppliersMap[order.supplier_id]
+              const regProgress = getOrderRegProgress(order)
+              const status = getOrderStatus(order)
               return (
                 <Card key={order.id} padding="sm" radius="md" withBorder
                   style={{ cursor: 'pointer' }}
@@ -196,11 +214,8 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                 >
                   <Group justify="space-between" mb="xs">
                     <div>
-                      <Text fw={600}>{customersMap[order.customer_id]?.name || order.customer_name || 'Unknown'}</Text>
-                      <Text size="xs" c="dimmed">#{order.id}</Text>
-                      {(customersMap[order.customer_id]?.address || order.customer_address) && (
-                        <Text size="xs" c="dimmed">{customersMap[order.customer_id]?.address || order.customer_address}</Text>
-                      )}
+                      <Text fw={600}>{supplier?.name || 'Unknown Supplier'}</Text>
+                      {supplier?.firm_name && <Text size="xs" c="dimmed">{supplier.firm_name}</Text>}
                     </div>
                   </Group>
 
@@ -210,9 +225,9 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                       <Text size="sm">{renderItemsSummary(items)}</Text>
                     </div>
                     <div>
-                      <Text size="xs" c="dimmed">Scanned</Text>
-                      <Text size="sm" c={progress.scanned >= progress.total ? 'green' : 'orange'}>
-                        {progress.scanned}/{progress.total}
+                      <Text size="xs" c="dimmed">Registered</Text>
+                      <Text size="sm" c={regProgress.registered >= regProgress.total ? 'green' : 'orange'}>
+                        {regProgress.registered}/{regProgress.total}
                       </Text>
                     </div>
                     <div>
@@ -220,49 +235,44 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                       <Text size="sm">{getTotalQty(items)} units</Text>
                     </div>
                     <div>
-                      <Text size="xs" c="dimmed">Approved On</Text>
-                      <Text size="sm">{formatDate(order.updated_at)}</Text>
+                      <Text size="xs" c="dimmed">Created</Text>
+                      <Text size="sm">{formatDate(order.created_at)}</Text>
                     </div>
                   </SimpleGrid>
 
                   <Collapse expanded={isExpanded}>
                     <Stack gap="sm" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
                       {items.map(li => {
-                        const itemId = li.item_id || li.inventory_items?.id
-                        const scanned = getLineItemScanned(li.id)
-                        const remaining = Math.max(0, li.quantity - scanned)
+                        const reg = getLineItemReg(li.id)
+                        const remaining = Math.max(0, li.quantity - reg.registered)
                         return (
                           <div key={li.id}>
                             <Group justify="space-between">
                               <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
                               <Group gap={4}>
-                                <Badge variant="light" size="sm">{scanned}/{li.quantity}</Badge>
+                                <Badge variant="light" size="sm">{reg.registered}/{li.quantity}</Badge>
                                 {remaining > 0 && <Badge color="orange" variant="light" size="sm">{remaining} left</Badge>}
-                                <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }) }}>
+                                <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: li.inventory_id, name: li.inventory_items?.name || 'Unknown' }) }}>
                                   View
                                 </Button>
                               </Group>
                             </Group>
-                            {order.status === 'dispatched' ? (
-                              <Badge color="green" variant="light" size="sm" mt={4}>✓ Dispatched</Badge>
-                            ) : remaining > 0 ? (
+                            {remaining > 0 ? (
                               <ScannerInput
                                 remaining={remaining}
-                                registered={scanned}
-                                onRegister={(barcodes) => handleScanBarcodes(itemId, li.id, barcodes)}
+                                registered={reg.registered}
+                                onRegister={(barcodes) => handleRegisterBarcodes(li.inventory_id, li.id, barcodes)}
                                 autoFocus={false}
                               />
                             ) : (
-                              <Badge color="green" variant="light" size="sm" mt={4}>✓ All scanned</Badge>
+                              <Badge color="green" variant="light" size="sm" mt={4}>✓ All registered</Badge>
                             )}
                           </div>
                         )
                       })}
-                      {order.status === 'approved' && (
-                        <Button size="xs" color="blue" mt="xs" onClick={e => { e.stopPropagation(); onDispatch(order.id) }}>
-                          Mark Dispatched
-                        </Button>
-                      )}
+                      <Button size="xs" color="blue" mt="xs" onClick={e => { e.stopPropagation(); onMarkComplete?.(order.id) }}>
+                        Mark Complete
+                      </Button>
                     </Stack>
                   </Collapse>
                 </Card>
@@ -274,30 +284,27 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
             <Table highlightOnHover verticalSpacing="sm">
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th>Customer</Table.Th>
+                  <Table.Th>Supplier</Table.Th>
                   <Table.Th>Items</Table.Th>
                   <Table.Th>Progress</Table.Th>
-                  <Table.Th>Approved On</Table.Th>
+                  <Table.Th>Created</Table.Th>
                   <Table.Th />
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
                 {filteredOrders.map(order => {
-                  const items = order.sales_order_items || []
+                  const items = order.purchase_order_items || []
+                  const regProgress = getOrderRegProgress(order)
+                  const status = getOrderStatus(order)
                   const isExpanded = expandedOrders[order.id]
-                  const progress = getOrderScanProgress(order)
+                  const supplier = suppliersMap[order.supplier_id]
                   return (
                     <Fragment key={order.id}>
                       <Table.Tr style={{ cursor: 'pointer' }} onClick={() => toggleExpand(order.id)}>
                         <Table.Td>
                           <div>
-                            <Text size="sm" fw={500}>{customersMap[order.customer_id]?.name || order.customer_name || 'Unknown'}</Text>
-                            {(customersMap[order.customer_id]?.mobile || order.customer_contact) && (
-                              <Text size="xs" c="dimmed">{customersMap[order.customer_id]?.mobile || order.customer_contact}</Text>
-                            )}
-                            {(customersMap[order.customer_id]?.address || order.customer_address) && (
-                              <Text size="xs" c="dimmed">{customersMap[order.customer_id]?.address || order.customer_address}</Text>
-                            )}
+                            <Text size="sm" fw={500}>{supplier?.name || 'Unknown'}</Text>
+                            {supplier?.firm_name && <Text size="xs" c="dimmed">{supplier.firm_name}</Text>}
                           </div>
                         </Table.Td>
                         <Table.Td>
@@ -307,28 +314,22 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                           </div>
                         </Table.Td>
                         <Table.Td>
-                          <Badge variant="light" color={progress.scanned >= progress.total ? 'green' : 'orange'}>
-                            {progress.scanned}/{progress.total} scanned
+                          <Badge variant="light" color={regProgress.registered >= regProgress.total ? 'green' : 'orange'}>
+                            {regProgress.registered}/{regProgress.total} registered
                           </Badge>
                         </Table.Td>
                         <Table.Td>
-                          <Text size="sm" c="dimmed">{formatDate(order.updated_at)}</Text>
+                          <Text size="sm" c="dimmed">{formatDate(order.created_at)}</Text>
                         </Table.Td>
                         <Table.Td onClick={e => e.stopPropagation()}>
-                          {order.status === 'approved' && (
-                            <Button size="compact-xs" color="blue" onClick={() => onDispatch(order.id)}>
-                              Mark Dispatched
-                            </Button>
-                          )}
-                          {order.status === 'dispatched' && (
-                            <Badge variant="light" color="green">Completed</Badge>
-                          )}
+                          <Button size="compact-xs" color="blue" onClick={() => onMarkComplete?.(order.id)}>
+                            Mark Complete
+                          </Button>
                         </Table.Td>
                       </Table.Tr>
                       {isExpanded && items.map(li => {
-                        const itemId = li.item_id || li.inventory_items?.id
-                        const scanned = getLineItemScanned(li.id)
-                        const remaining = Math.max(0, li.quantity - scanned)
+                        const reg = getLineItemReg(li.id)
+                        const remaining = Math.max(0, li.quantity - reg.registered)
                         return (
                           <Table.Tr key={li.id} style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
                             <Table.Td>
@@ -343,25 +344,22 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                               <Badge variant="light" size="sm">{li.quantity} units</Badge>
                             </Table.Td>
                             <Table.Td>
-                              {order.status === 'dispatched' ? (
-                                <Badge color="green" variant="light" size="sm">✓ Dispatched</Badge>
-                              ) : remaining > 0 ? (
+                              {remaining > 0 ? (
                                 <ScannerInput
                                   remaining={remaining}
-                                  registered={scanned}
-                                  onRegister={(barcodes) => handleScanBarcodes(itemId, li.id, barcodes)}
+                                  registered={reg.registered}
+                                  onRegister={(barcodes) => handleRegisterBarcodes(li.inventory_id, li.id, barcodes)}
                                   autoFocus={false}
                                 />
                               ) : (
-                                <Badge color="green" variant="light" size="sm">✓ All {scanned} scanned</Badge>
+                                <Badge color="green" variant="light" size="sm">✓ All {reg.registered} registered</Badge>
                               )}
                             </Table.Td>
                             <Table.Td>
-                              <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }) }}>
+                              <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: li.inventory_id, name: li.inventory_items?.name || 'Unknown' }) }}>
                                 View
                               </Button>
                             </Table.Td>
-                            <Table.Td />
                           </Table.Tr>
                         )
                       })}
@@ -379,19 +377,19 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
         {(() => {
           const itemBarcodes = barcodeItem ? getBarcodesForItem(barcodeItem.id, orders) : []
           return itemBarcodes.length === 0 ? (
-            <Text ta="center" c="dimmed" py="lg">No barcodes scanned for this item yet.</Text>
+            <Text ta="center" c="dimmed" py="lg">No barcodes registered for this item yet.</Text>
           ) : (
             <>
               <Group gap="xs" mb="md">
-                <Badge color="green" variant="light" size="sm">{itemBarcodes.length} scanned</Badge>
+                <Badge color="green" variant="light" size="sm">{itemBarcodes.length} registered</Badge>
               </Group>
               <Stack gap="xs">
                 {itemBarcodes.map(u => (
                   <BarcodeRow
                     key={u.id}
                     entry={u}
-                    onUpdate={(newVal) => { updateBarcode(u.soItemId, u.id, newVal); setScanVersion(v => v + 1) }}
-                    onDelete={() => { deleteBarcode(u.soItemId, u.id); setScanVersion(v => v + 1) }}
+                    onUpdate={(newVal) => { updateBarcode(u.poItemId, u.id, newVal); setRegVersion(v => v + 1) }}
+                    onDelete={() => { deleteBarcode(u.poItemId, u.id); setRegVersion(v => v + 1) }}
                   />
                 ))}
               </Stack>
