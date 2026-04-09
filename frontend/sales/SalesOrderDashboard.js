@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
 import {
   Badge, Button, Card, Center, Collapse, Group, Loader,
   Paper, SimpleGrid, Stack, Table, Text, TextInput
@@ -8,6 +8,9 @@ import {
 import { useMediaQuery } from '@mantine/hooks'
 import { useAuth, ROLES } from '../shared/auth'
 import { formatDate } from '../shared/utils'
+import { TRACKING_ENABLED } from '../shared/trackingConfig'
+import BarcodeDrawer from '../shared/BarcodeDrawer'
+import { inventoryUnitService } from '../../backend'
 
 const STATUS_COLOR = {
   pending: 'yellow',
@@ -22,10 +25,29 @@ export default function SalesOrderDashboard({ orders, customersMap = {}, loading
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
+  const [unitsMap, setUnitsMap] = useState({})
+  const [drawerItem, setDrawerItem] = useState(null)
   const isMobile = useMediaQuery('(max-width: 768px)')
 
+  async function fetchUnitsForSO(soId) {
+    const { data, error } = await inventoryUnitService.getBySOId(soId)
+    if (!error) {
+      setUnitsMap(prev => ({ ...prev, [soId]: data }))
+    }
+  }
+
   function toggleExpand(orderId) {
-    setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
+    setExpandedOrders(prev => {
+      const next = { ...prev, [orderId]: !prev[orderId] }
+      if (TRACKING_ENABLED && next[orderId] && !unitsMap[orderId]) {
+        fetchUnitsForSO(orderId)
+      }
+      return next
+    })
+  }
+
+  function getLineItemUnits(soId, itemId) {
+    return (unitsMap[soId] || []).filter(u => u.inventory_id === itemId)
   }
 
   const filteredOrders = useMemo(() => {
@@ -75,6 +97,15 @@ export default function SalesOrderDashboard({ orders, customersMap = {}, loading
     return (items || []).reduce((sum, li) => sum + li.quantity, 0)
   }
 
+  function getTotalValue(items) {
+    return (items || []).reduce((sum, li) => sum + (li.quantity * (li.price || 0)), 0)
+  }
+
+  function formatCurrency(val) {
+    if (!val) return '—'
+    return `₹${Number(val).toLocaleString('en-IN', { minimumFractionDigits: 2 })}`
+  }
+
   const statCards = [
     { label: 'All Orders', value: stats.total, color: 'blue', filter: 'all' },
     { label: 'Pending', value: stats.pending, color: 'yellow', filter: 'pending' },
@@ -106,21 +137,22 @@ export default function SalesOrderDashboard({ orders, customersMap = {}, loading
         ))}
       </SimpleGrid>
 
-      {/* Filters — single row */}
-      <Group gap="sm">
+      {/* Filters */}
+      <Stack gap="xs">
         <TextInput
           size="sm"
           placeholder="Search by item, customer, order ID…"
           value={searchFilter}
           onChange={(e) => setSearchFilter(e.currentTarget.value)}
-          style={{ flex: 1 }}
         />
-        <TextInput size="sm" type="date" placeholder="From" value={dateFrom} onChange={(e) => setDateFrom(e.currentTarget.value)} w={140} />
-        <TextInput size="sm" type="date" placeholder="To" value={dateTo} onChange={(e) => setDateTo(e.currentTarget.value)} w={140} />
-        {(dateFrom || dateTo || searchFilter) && (
-          <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setDateFrom(''); setDateTo('') }}>Clear</Button>
-        )}
-      </Group>
+        <Group gap="sm">
+          <TextInput size="sm" type="date" placeholder="From" value={dateFrom} onChange={(e) => setDateFrom(e.currentTarget.value)} style={{ flex: 1 }} />
+          <TextInput size="sm" type="date" placeholder="To" value={dateTo} onChange={(e) => setDateTo(e.currentTarget.value)} style={{ flex: 1 }} />
+          {(dateFrom || dateTo || searchFilter) && (
+            <Button variant="subtle" color="gray" size="sm" onClick={() => { setSearchFilter(''); setDateFrom(''); setDateTo('') }}>Clear</Button>
+          )}
+        </Group>
+      </Stack>
 
       {/* Order List */}
       <Paper p="md" radius="md" withBorder>
@@ -166,18 +198,33 @@ export default function SalesOrderDashboard({ orders, customersMap = {}, loading
                       <Text size="sm">{getTotalQty(items)} units</Text>
                     </div>
                     <div>
+                      <Text size="xs" c="dimmed">Value</Text>
+                      <Text size="sm" fw={600} style={{ whiteSpace: 'nowrap' }}>{formatCurrency(getTotalValue(items))}</Text>
+                    </div>
+                    <div>
                       <Text size="xs" c="dimmed">Created</Text>
                       <Text size="sm">{formatDate(order.created_at)}</Text>
                     </div>
                   </SimpleGrid>
 
                   <Collapse in={isExpanded}>
-                    <Stack gap={4} mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
+                    <Stack gap="sm" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
                       {items.map(li => (
-                        <Group key={li.id} justify="space-between">
-                          <Text size="sm">{li.inventory_items?.name || 'Unknown'}</Text>
-                          <Badge variant="light" size="sm">{li.quantity} units</Badge>
-                        </Group>
+                        <Stack key={li.id} gap={4}>
+                          <Group justify="space-between" wrap="nowrap">
+                            <Text size="sm" fw={500} style={{ flex: 1, minWidth: 0 }}>{li.inventory_items?.name || 'Unknown'}</Text>
+                            <Badge variant="light" size="sm">{li.quantity} units</Badge>
+                          </Group>
+                          <Text size="xs" c="dimmed">{formatCurrency(li.price)}/unit</Text>
+                          {TRACKING_ENABLED && (() => {
+                            const units = getLineItemUnits(order.id, li.item_id)
+                            return (
+                              <Button size="compact-xs" variant="subtle" onClick={(e) => { e.stopPropagation(); setDrawerItem({ soId: order.id, inventoryId: li.item_id, name: li.inventory_items?.name || 'Unknown' }) }}>
+                                View{units.length > 0 ? ` (${units.length})` : ''}
+                              </Button>
+                            )
+                          })()}
+                        </Stack>
                       ))}
                     </Stack>
                   </Collapse>
@@ -202,6 +249,7 @@ export default function SalesOrderDashboard({ orders, customersMap = {}, loading
                   <Table.Th>Customer</Table.Th>
                   <Table.Th>Items</Table.Th>
                   <Table.Th>Total Qty</Table.Th>
+                  <Table.Th>Value</Table.Th>
                   <Table.Th>Status</Table.Th>
                   <Table.Th>Created</Table.Th>
                   {isAdmin && <Table.Th>Actions</Table.Th>}
@@ -241,6 +289,9 @@ export default function SalesOrderDashboard({ orders, customersMap = {}, loading
                           <Badge variant="light">{getTotalQty(items)} units</Badge>
                         </Table.Td>
                         <Table.Td>
+                          <Text size="sm" fw={600} style={{ whiteSpace: 'nowrap' }}>{formatCurrency(getTotalValue(items))}</Text>
+                        </Table.Td>
+                        <Table.Td>
                           <Badge color={STATUS_COLOR[order.status] || 'gray'}>{order.status}</Badge>
                         </Table.Td>
                         <Table.Td>
@@ -271,7 +322,20 @@ export default function SalesOrderDashboard({ orders, customersMap = {}, loading
                           <Table.Td>
                             <Badge variant="light" size="sm">{li.quantity} units</Badge>
                           </Table.Td>
-                          <Table.Td colSpan={isAdmin ? 3 : 2} />
+                          <Table.Td>
+                            <Text size="sm" c="dimmed" style={{ whiteSpace: 'nowrap' }}>{formatCurrency(li.price)}/unit</Text>
+                          </Table.Td>
+                          <Table.Td colSpan={isAdmin ? 2 : 1}>
+                            {TRACKING_ENABLED && (() => {
+                              const units = getLineItemUnits(order.id, li.item_id)
+                              return (
+                                <Button size="compact-xs" variant="subtle" onClick={() => setDrawerItem({ soId: order.id, inventoryId: li.item_id, name: li.inventory_items?.name || 'Unknown' })}>
+                                  View{units.length > 0 ? ` (${units.length})` : ''}
+                                </Button>
+                              )
+                            })()}
+                          </Table.Td>
+                          <Table.Td />
                         </Table.Tr>
                       ))}
                     </Fragment>
@@ -282,6 +346,16 @@ export default function SalesOrderDashboard({ orders, customersMap = {}, loading
           </Table.ScrollContainer>
         )}
       </Paper>
+
+      {TRACKING_ENABLED && drawerItem && (
+        <BarcodeDrawer
+          opened={!!drawerItem}
+          onClose={() => setDrawerItem(null)}
+          title={drawerItem?.name || 'Barcodes'}
+          barcodes={getLineItemUnits(drawerItem.soId, drawerItem.inventoryId).map(u => ({ ...u, barcode: u.identifier }))}
+          badgeLabel="Tagged"
+        />
+      )}
     </Stack>
   )
 }
