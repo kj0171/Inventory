@@ -1,56 +1,17 @@
 'use client'
 
-import { useState, useMemo, Fragment } from 'react'
+import { useState, useEffect, useMemo, useCallback, Fragment } from 'react'
 import {
-  ActionIcon, Badge, Button, Card, Center, Collapse, Drawer, Group, Loader,
+  Alert, Badge, Button, Card, Center, Collapse, Group, Loader,
   Paper, SimpleGrid, Stack, Table, Text, TextInput
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 import { formatDate } from '../shared/utils'
 import ScannerInput from '../shared/ScannerInput'
+import BarcodeDrawer from '../shared/BarcodeDrawer'
 import { TRACKING_ENABLED } from '../shared/trackingConfig'
-
-// In-memory barcode store keyed by soItemId → array of { id, barcode, created_at }
-const _dispatchBarcodeStore = {}
-
-function getBarcodes(soItemId) {
-  return _dispatchBarcodeStore[soItemId] || []
-}
-
-function addBarcodes(soItemId, barcodes) {
-  const existing = _dispatchBarcodeStore[soItemId] || []
-  const newEntries = barcodes.map((b, i) => ({
-    id: `${soItemId}-${Date.now()}-${i}`,
-    barcode: b,
-    created_at: new Date().toISOString(),
-  }))
-  _dispatchBarcodeStore[soItemId] = [...existing, ...newEntries]
-  return newEntries
-}
-
-function updateBarcode(soItemId, barcodeId, newBarcode) {
-  const list = _dispatchBarcodeStore[soItemId] || []
-  _dispatchBarcodeStore[soItemId] = list.map(b => b.id === barcodeId ? { ...b, barcode: newBarcode } : b)
-}
-
-function deleteBarcode(soItemId, barcodeId) {
-  const list = _dispatchBarcodeStore[soItemId] || []
-  _dispatchBarcodeStore[soItemId] = list.filter(b => b.id !== barcodeId)
-}
-
-function getBarcodesForItem(itemId, orders) {
-  const all = []
-  for (const order of orders) {
-    for (const li of (order.sales_order_items || [])) {
-      if ((li.item_id || li.inventory_items?.id) === itemId) {
-        for (const b of getBarcodes(li.id)) {
-          all.push({ ...b, soItemId: li.id })
-        }
-      }
-    }
-  }
-  return all
-}
+import ConfirmModal from '../shared/ConfirmModal'
+import { inventoryUnitService } from '../../backend'
 
 export default function DispatchDashboard({ orders, customersMap = {}, loading, onDispatch }) {
   const [searchFilter, setSearchFilter] = useState('')
@@ -58,35 +19,138 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [expandedOrders, setExpandedOrders] = useState({})
-  const [scanVersion, setScanVersion] = useState(0)
+  const [countsMap, setCountsMap] = useState({})
+  const [unitsMap, setUnitsMap] = useState({})
   const [barcodeItem, setBarcodeItem] = useState(null)
+  const [dispatching, setDispatching] = useState(false)
+  const [confirm, setConfirm] = useState({ opened: false, message: '', onConfirm: null })
+  const [dispatchAlert, setDispatchAlert] = useState('')
   const isMobile = useMediaQuery('(max-width: 768px)')
 
-  function handleViewBarcodes(item) {
-    setBarcodeItem(item)
+  // Fetch full unit rows for an SO (called on expand)
+  const fetchUnitsForSO = useCallback(async (soId) => {
+    const { data, error } = await inventoryUnitService.getBySOId(soId)
+    if (!error) {
+      setUnitsMap(prev => ({ ...prev, [soId]: data }))
+      setCountsMap(prev => ({ ...prev, [soId]: (data || []).length }))
+    }
+  }, [])
+
+  // Fetch counts for all SOs in bulk on mount / orders change
+  useEffect(() => {
+    async function loadCounts() {
+      const soIds = orders.map(o => o.id)
+      if (soIds.length === 0) return
+      const { data } = await inventoryUnitService.getCountsBySOIds(soIds)
+      if (data) setCountsMap(data)
+    }
+    loadCounts()
+  }, [orders])
+
+  function handleViewBarcodes(item, soId) {
+    setBarcodeItem({ ...item, soId })
   }
 
-  function handleScanBarcodes(itemId, soItemId, barcodes) {
-    addBarcodes(soItemId, barcodes)
-    setScanVersion(v => v + 1)
+  // Get units for a specific SO line item from state
+  function getLineItemUnits(soId, inventoryId) {
+    return (unitsMap[soId] || []).filter(u => u.inventory_id === inventoryId)
+  }
+
+  async function handleScanBarcodes(inventoryId, soId, barcodes) {
+    const units = barcodes.map(b => ({
+      inventory_id: inventoryId,
+      so_id: soId,
+      identifier: b,
+    }))
+    const { error } = await inventoryUnitService.create(units)
+    if (!error) {
+      fetchUnitsForSO(soId)
+    }
+  }
+
+  async function handleUpdateBarcode(unitId, newValue, soId) {
+    const { error } = await inventoryUnitService.update(unitId, { identifier: newValue })
+    if (!error) fetchUnitsForSO(soId)
+  }
+
+  async function handleDeleteBarcode(unitId, soId) {
+    const { error } = await inventoryUnitService.delete(unitId)
+    if (!error) fetchUnitsForSO(soId)
+  }
+
+  async function handleDispatchOrder(orderId) {
+    if (!TRACKING_ENABLED) {
+      onDispatch(orderId)
+      return
+    }
+
+    const order = orders.find(o => o.id === orderId)
+    if (!order) return
+
+    setDispatching(true)
+    setDispatchAlert('')
+
+    // Fetch all units tagged to this SO
+    const { data: soUnits } = await inventoryUnitService.getBySOId(orderId)
+    const taggedIdentifiers = (soUnits || []).map(u => u.identifier)
+
+    if (taggedIdentifiers.length === 0) {
+      // No barcodes tagged — just dispatch normally
+      await onDispatch(orderId)
+      setDispatching(false)
+      return
+    }
+
+    // Check which of those identifiers already existed in inventory_units before this SO tagged them
+    // (i.e. they have a po_id — they came from PO registration)
+    const withPO = (soUnits || []).filter(u => u.po_id)
+    const withoutPO = (soUnits || []).filter(u => !u.po_id)
+
+    async function processSoldAndDispatch() {
+      // Mark all SO-tagged units as sold
+      const allIds = (soUnits || []).map(u => u.id)
+      if (allIds.length > 0) {
+        await inventoryUnitService.markSold(allIds, orderId)
+      }
+      await onDispatch(orderId)
+      setDispatching(false)
+    }
+
+    if (withoutPO.length > 0) {
+      setDispatching(false)
+      const names = withoutPO.map(u => u.identifier).join(', ')
+      setConfirm({
+        opened: true,
+        message: `The following ${withoutPO.length} barcode(s) were not found in the purchase registry:\n\n${names}\n\nThese items were not scanned during purchase registration. Do you still want to proceed and mark them as sold?`,
+        onConfirm: async () => {
+          setDispatching(true)
+          await processSoldAndDispatch()
+        },
+      })
+    } else {
+      await processSoldAndDispatch()
+    }
   }
 
   function toggleExpand(orderId) {
-    setExpandedOrders(prev => ({ ...prev, [orderId]: !prev[orderId] }))
+    setExpandedOrders(prev => {
+      const next = { ...prev, [orderId]: !prev[orderId] }
+      if (next[orderId] && !unitsMap[orderId]) {
+        fetchUnitsForSO(orderId)
+      }
+      return next
+    })
   }
 
-  function getLineItemScanned(soItemId) {
-    return getBarcodes(soItemId).length
+  function getLineItemScanned(soId, inventoryId) {
+    return getLineItemUnits(soId, inventoryId).length
   }
 
   function getOrderScanProgress(order) {
     const items = order.sales_order_items || []
-    let total = 0, scanned = 0
-    for (const li of items) {
-      total += li.quantity
-      scanned += getBarcodes(li.id).length
-    }
-    return { total, scanned }
+    let total = 0
+    for (const li of items) total += li.quantity
+    return { total, scanned: countsMap[order.id] || 0 }
   }
 
   const filteredOrders = useMemo(() => {
@@ -113,7 +177,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
       }
       return true
     })
-  }, [orders, statusFilter, searchFilter, dateFrom, dateTo, scanVersion])
+  }, [orders, statusFilter, searchFilter, dateFrom, dateTo])
 
   const readyCount = orders.filter(o => o.status === 'approved').length
   const dispatchedCount = orders.filter(o => o.status === 'dispatched').length
@@ -236,7 +300,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                     <Stack gap="sm" mt="xs" style={{ borderTop: '1px solid var(--mantine-color-default-border)', paddingTop: 8 }}>
                       {items.map(li => {
                         const itemId = li.item_id || li.inventory_items?.id
-                        const scanned = getLineItemScanned(li.id)
+                        const scanned = getLineItemScanned(order.id, itemId)
                         const remaining = Math.max(0, li.quantity - scanned)
                         return (
                           <div key={li.id}>
@@ -247,7 +311,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                                   <>
                                     <Badge variant="light" size="sm">{scanned}/{li.quantity}</Badge>
                                     {remaining > 0 && <Badge color="orange" variant="light" size="sm">{remaining} left</Badge>}
-                                    <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }) }}>
+                                    <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }, order.id) }}>
                                       View
                                     </Button>
                                   </>
@@ -263,7 +327,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                                 <ScannerInput
                                   remaining={remaining}
                                   registered={scanned}
-                                  onRegister={(barcodes) => handleScanBarcodes(itemId, li.id, barcodes)}
+                                  onRegister={(barcodes) => handleScanBarcodes(itemId, order.id, barcodes)}
                                   autoFocus={false}
                                 />
                               ) : (
@@ -274,7 +338,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                         )
                       })}
                       {order.status === 'approved' && (
-                        <Button size="xs" color="blue" mt="xs" onClick={e => { e.stopPropagation(); onDispatch(order.id) }}>
+                        <Button size="xs" color="blue" mt="xs" loading={dispatching} onClick={e => { e.stopPropagation(); handleDispatchOrder(order.id) }}>
                           Mark Dispatched
                         </Button>
                       )}
@@ -337,7 +401,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                         </Table.Td>
                         <Table.Td onClick={e => e.stopPropagation()}>
                           {order.status === 'approved' && (
-                            <Button size="compact-xs" color="blue" onClick={() => onDispatch(order.id)}>
+                            <Button size="compact-xs" color="blue" loading={dispatching} onClick={() => handleDispatchOrder(order.id)}>
                               Mark Dispatched
                             </Button>
                           )}
@@ -348,7 +412,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                       </Table.Tr>
                       {isExpanded && items.map(li => {
                         const itemId = li.item_id || li.inventory_items?.id
-                        const scanned = getLineItemScanned(li.id)
+                        const scanned = getLineItemScanned(order.id, itemId)
                         const remaining = Math.max(0, li.quantity - scanned)
                         return (
                           <Table.Tr key={li.id} style={{ backgroundColor: 'var(--mantine-color-gray-0)' }}>
@@ -371,7 +435,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                                   <ScannerInput
                                     remaining={remaining}
                                     registered={scanned}
-                                    onRegister={(barcodes) => handleScanBarcodes(itemId, li.id, barcodes)}
+                                    onRegister={(barcodes) => handleScanBarcodes(itemId, order.id, barcodes)}
                                     autoFocus={false}
                                   />
                                 ) : (
@@ -383,7 +447,7 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
                             </Table.Td>
                             <Table.Td>
                               {TRACKING_ENABLED && (
-                                <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }) }}>
+                                <Button size="compact-xs" variant="light" onClick={(e) => { e.stopPropagation(); handleViewBarcodes({ id: itemId, name: li.inventory_items?.name || 'Unknown' }, order.id) }}>
                                   View
                                 </Button>
                               )}
@@ -402,76 +466,38 @@ export default function DispatchDashboard({ orders, customersMap = {}, loading, 
       </Paper>
 
       {/* Barcode Drawer */}
-      {TRACKING_ENABLED && (
-      <Drawer opened={!!barcodeItem} onClose={() => setBarcodeItem(null)} title={barcodeItem?.name || 'Barcodes'} position="right" size="md">
-        {(() => {
-          const itemBarcodes = barcodeItem ? getBarcodesForItem(barcodeItem.id, orders) : []
-          return itemBarcodes.length === 0 ? (
-            <Text ta="center" c="dimmed" py="lg">No barcodes scanned for this item yet.</Text>
-          ) : (
-            <>
-              <Group gap="xs" mb="md">
-                <Badge color="green" variant="light" size="sm">{itemBarcodes.length} scanned</Badge>
-              </Group>
-              <Stack gap="xs">
-                {itemBarcodes.map(u => (
-                  <BarcodeRow
-                    key={u.id}
-                    entry={u}
-                    onUpdate={(newVal) => { updateBarcode(u.soItemId, u.id, newVal); setScanVersion(v => v + 1) }}
-                    onDelete={() => { deleteBarcode(u.soItemId, u.id); setScanVersion(v => v + 1) }}
-                  />
-                ))}
-              </Stack>
-            </>
-          )
-        })()}
-      </Drawer>
+      {TRACKING_ENABLED && (() => {
+        const soId = barcodeItem?.soId
+        const itemUnits = barcodeItem ? getLineItemUnits(soId, barcodeItem.id) : []
+        const barcodes = itemUnits.map(u => ({ id: u.id, barcode: u.identifier, created_at: u.created_at }))
+        return (
+          <BarcodeDrawer
+            opened={!!barcodeItem}
+            onClose={() => setBarcodeItem(null)}
+            title={barcodeItem?.name || 'Barcodes'}
+            barcodes={barcodes}
+            onUpdate={(unitId, newVal) => handleUpdateBarcode(unitId, newVal, soId)}
+            onDelete={(unitId) => handleDeleteBarcode(unitId, soId)}
+            badgeLabel="scanned"
+          />
+        )
+      })()}
+
+      {dispatchAlert && (
+        <Alert color="red" withCloseButton onClose={() => setDispatchAlert('')} mt="md">
+          {dispatchAlert}
+        </Alert>
       )}
+
+      <ConfirmModal
+        opened={confirm.opened}
+        onClose={() => { setConfirm({ opened: false, message: '', onConfirm: null }); setDispatching(false) }}
+        onConfirm={async () => { setConfirm(c => ({ ...c, opened: false })); if (confirm.onConfirm) await confirm.onConfirm() }}
+        title="Unregistered Barcodes Detected"
+        message={confirm.message}
+        confirmLabel="Proceed Anyway"
+        confirmColor="orange"
+      />
     </Stack>
-  )
-}
-
-function BarcodeRow({ entry, onUpdate, onDelete }) {
-  const [editing, setEditing] = useState(false)
-  const [value, setValue] = useState(entry.barcode)
-
-  function handleSave() {
-    const trimmed = value.trim()
-    if (trimmed && trimmed !== entry.barcode) {
-      onUpdate(trimmed)
-    }
-    setEditing(false)
-  }
-
-  return (
-    <Group gap="xs" justify="space-between" wrap="nowrap" style={{ borderBottom: '1px solid var(--mantine-color-gray-2)', paddingBottom: 6 }}>
-      {editing ? (
-        <TextInput
-          size="xs"
-          value={value}
-          onChange={e => setValue(e.currentTarget.value)}
-          onKeyDown={e => { if (e.key === 'Enter') handleSave(); if (e.key === 'Escape') { setValue(entry.barcode); setEditing(false) } }}
-          onBlur={handleSave}
-          autoFocus
-          style={{ flex: 1 }}
-        />
-      ) : (
-        <div style={{ flex: 1, cursor: 'pointer' }} onClick={() => setEditing(true)}>
-          <Text size="sm" fw={500}>{entry.barcode}</Text>
-          <Text size="xs" c="dimmed">{formatDate(entry.created_at)}</Text>
-        </div>
-      )}
-      <Group gap={4} wrap="nowrap">
-        {!editing && (
-          <ActionIcon size="sm" variant="subtle" color="blue" onClick={() => setEditing(true)}>
-            ✎
-          </ActionIcon>
-        )}
-        <ActionIcon size="sm" variant="subtle" color="red" onClick={onDelete}>
-          ✕
-        </ActionIcon>
-      </Group>
-    </Group>
   )
 }

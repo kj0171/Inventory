@@ -9,7 +9,7 @@ import {
 } from '@mantine/core'
 import { useMediaQuery } from '@mantine/hooks'
 
-const EMPTY_ROW = { itemId: '', quantity: '' }
+const EMPTY_ROW = { itemId: '', quantity: '', price: '' }
 
 export default function CreateSalesOrderForm({ onOrderCreated }) {
   const [selectedCustomerId, setSelectedCustomerId] = useState('')
@@ -101,7 +101,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     setRows(prev => prev.map((row, i) => {
       if (i !== rowIndex) return row
       if (!itemId) return { ...EMPTY_ROW }
-      return { itemId, quantity: '' }
+      return { itemId, quantity: '', price: '' }
     }))
   }
 
@@ -109,6 +109,13 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
     setRows(prev => prev.map((row, i) => {
       if (i !== rowIndex) return row
       return { ...row, quantity: value }
+    }))
+  }
+
+  function updatePrice(rowIndex, value) {
+    setRows(prev => prev.map((row, i) => {
+      if (i !== rowIndex) return row
+      return { ...row, price: value }
     }))
   }
 
@@ -151,6 +158,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
       allItems.push({
         item_id: row.itemId,
         quantity: qty,
+        price: parseFloat(row.price) || 0,
       })
     }
 
@@ -297,7 +305,7 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
                   )}
                 </Group>
 
-                <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
+                <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm">
                   <Select
                     label="Select Item"
                     placeholder="Search and select item..."
@@ -316,6 +324,16 @@ export default function CreateSalesOrderForm({ onOrderCreated }) {
                     max={available || undefined}
                     value={row.quantity === '' ? '' : Number(row.quantity)}
                     onChange={val => updateQty(index, val === '' ? '' : String(val))}
+                    disabled={!row.itemId}
+                  />
+                  <NumberInput
+                    label="Price"
+                    placeholder="Unit price"
+                    min={0}
+                    decimalScale={2}
+                    prefix="₹"
+                    value={row.price === '' ? '' : Number(row.price)}
+                    onChange={val => updatePrice(index, val === '' ? '' : String(val))}
                     disabled={!row.itemId}
                   />
                 </SimpleGrid>
