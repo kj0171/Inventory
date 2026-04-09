@@ -137,17 +137,28 @@ export default function AddStockForm({ onStockAdded }) {
         let itemId = row.itemId
 
         if (row.mode === 'new') {
-          const { data: newItem, error: createError } = await inventoryItemService.createItem({
+          // Check if an inventory item already exists with the same name, category and brand
+          const { data: existing } = await inventoryItemService.findByMatch({
             name: row.name.trim(),
             item_category: row.item_category.trim(),
             item_group: row.item_group.trim(),
           })
-          if (createError || !newItem) {
-            setErrorMsg(`Failed to create item "${row.name}": ${createError?.message || 'Unknown error'}`)
-            setSubmitting(false)
-            return
+
+          if (existing) {
+            itemId = existing.id
+          } else {
+            const { data: newItem, error: createError } = await inventoryItemService.createItem({
+              name: row.name.trim(),
+              item_category: row.item_category.trim(),
+              item_group: row.item_group.trim(),
+            })
+            if (createError || !newItem) {
+              setErrorMsg(`Failed to create item "${row.name}": ${createError?.message || 'Unknown error'}`)
+              setSubmitting(false)
+              return
+            }
+            itemId = newItem.id
           }
-          itemId = newItem.id
         }
 
         resolvedItems.push({

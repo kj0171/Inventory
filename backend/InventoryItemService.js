@@ -22,9 +22,31 @@ export class InventoryItemService {
     return { data: data ? InventoryItemDto.fromDao(data) : null, error }
   }
 
+  async findByMatch({ name, item_category, item_group }) {
+    let query = supabase
+      .from(InventoryItemDao.TABLE)
+      .select(InventoryItemDao.SELECT_FULL)
+      .ilike(InventoryItemDao.COLUMNS.name, name.trim())
+
+    if (item_category?.trim()) {
+      query = query.ilike(InventoryItemDao.COLUMNS.category, item_category.trim())
+    } else {
+      query = query.is(InventoryItemDao.COLUMNS.category, null)
+    }
+
+    if (item_group?.trim()) {
+      query = query.ilike(InventoryItemDao.COLUMNS.brand, item_group.trim())
+    } else {
+      query = query.is(InventoryItemDao.COLUMNS.brand, null)
+    }
+
+    const { data, error } = await query.maybeSingle()
+    return { data: data ? InventoryItemDto.fromDao(data) : null, error }
+  }
+
   async createItem({ name, item_category, item_group }) {
     const dto = new InventoryItemDto({ name, item_category, item_group, quantity: 0, blocked_qty: 0, unit: '' })
-    const dbRow = dto.toDao()
+    const { id, ...dbRow } = dto.toDao()
     const { data, error } = await supabase
       .from(InventoryItemDao.TABLE)
       .insert(dbRow)
