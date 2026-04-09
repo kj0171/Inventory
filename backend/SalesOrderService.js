@@ -18,6 +18,7 @@ const ORDER_SELECT = `
     id,
     item_id,
     quantity,
+    price,
     inventory_items ( name, category, brand )
   )
 `
@@ -51,9 +52,9 @@ export class SalesOrderService {
     // 2. Insert line items
     const lineItems = order.items.map(item => ({
       sales_order_id: header.id,
-      stock_id: null,
       item_id: item.item_id,
       quantity: item.quantity,
+      price: item.price || 0,
     }))
 
     const { error: itemsError } = await supabase
